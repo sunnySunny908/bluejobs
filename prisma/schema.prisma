@@ -60,17 +60,16 @@ model CVUpload {
 }
 
 model Job {
-  id            String   @id @default(cuid())
-  externalId    String   @unique  // ✅ IMPORTANT
+  id            String    @id @default(cuid())
+  externalId    String    @unique
   title         String
   company       String
-  description   String
+  description   String    @db.Text
   location      String
-  applyUrl      String
+  applyUrl      String    @db.Text
   postedDate    DateTime
-  skills        String
-  createdAt     DateTime @default(now())
-  applications  JobApplication[]
+  skills        String    @db.Text
+  createdAt     DateTime  @default(now())
 }
 
 model JobApplication {
