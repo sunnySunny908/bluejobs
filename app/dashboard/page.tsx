@@ -109,8 +109,6 @@ export default function Dashboard() {
     );
   }
 
-  // No redirect - guest mode always enabled
-
   const handlePayment = async () => {
     try {
       const res = await fetch("/api/create-payment", {
