@@ -109,8 +109,7 @@ export default function Dashboard() {
     );
   }
 
-  // If no session, still show dashboard with guest user
-  // No redirect needed
+  // No redirect - guest mode always enabled
 
   const handlePayment = async () => {
     try {
@@ -242,7 +241,7 @@ export default function Dashboard() {
 
   return (
     <div style={styles.container}>
-      {/* Navigation Bar */}
+      {/* Navigation Bar - NO LOGIN BUTTON */}
       <nav style={styles.navbar}>
         <div style={styles.navContent}>
           <div style={styles.logo}>
