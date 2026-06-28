@@ -275,25 +275,31 @@ const styles: { [key: string]: React.CSSProperties } = {
     flexWrap: "wrap" as const,
   },
   searchInput: {
-    flex: 1,
-    padding: "12px 16px",
-    border: "1px solid #e2e8f0",
-    borderRadius: 8,
-    fontSize: 14,
-    outline: "none",
-    minWidth: 180,
-    transition: "border-color 0.2s",
-  },
+  flex: 1,
+  padding: "12px 16px",
+  border: "1px solid #e2e8f0",
+  borderRadius: 8,
+  fontSize: 14,
+  outline: "none",
+  minWidth: 180,
+  transition: "border-color 0.2s",
+  color: "#1f2937",        // ← ADD THIS (Dark text)
+  backgroundColor: "#ffffff", // ← ADD THIS
+  fontWeight: 500,          // ← ADD THIS (Optional)
+},
   locationInput: {
-    flex: 1,
-    padding: "12px 16px",
-    border: "1px solid #e2e8f0",
-    borderRadius: 8,
-    fontSize: 14,
-    outline: "none",
-    minWidth: 180,
-    transition: "border-color 0.2s",
-  },
+  flex: 1,
+  padding: "12px 16px",
+  border: "1px solid #e2e8f0",
+  borderRadius: 8,
+  fontSize: 14,
+  outline: "none",
+  minWidth: 180,
+  transition: "border-color 0.2s",
+  color: "#1f2937",        // ← ADD THIS (Dark text)
+  backgroundColor: "#ffffff", // ← ADD THIS
+  fontWeight: 500,          // ← ADD THIS (Optional)
+},
   searchBtn: {
     background: "#2563eb",
     color: "white",
