@@ -241,7 +241,7 @@ export default function Dashboard() {
 
   return (
     <div style={styles.container}>
-      {/* Navigation Bar - NO LOGIN BUTTON */}
+      {/* Navigation Bar - NO GUEST MODE TEXT */}
       <nav style={styles.navbar}>
         <div style={styles.navContent}>
           <div style={styles.logo}>
@@ -251,12 +251,10 @@ export default function Dashboard() {
           <div style={styles.navLinks}>
             <a href="/dashboard" style={{ ...styles.navLink, ...styles.activeNavLink }}>Dashboard</a>
             <a href="/jobs" style={styles.navLink}>Browse Jobs</a>
-            {session ? (
+            {session && (
               <button onClick={() => router.push("/api/auth/signout")} style={styles.logoutBtn}>
                 Logout
               </button>
-            ) : (
-              <span style={{ ...styles.navLink, color: "#6b7280" }}>Guest Mode</span>
             )}
           </div>
         </div>
@@ -465,7 +463,7 @@ export default function Dashboard() {
   );
 }
 
-// Styles (same as before)
+// Styles
 const styles: { [key: string]: React.CSSProperties } = {
   container: {
     minHeight: "100vh",
