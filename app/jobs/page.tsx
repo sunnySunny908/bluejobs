@@ -71,7 +71,7 @@ export default function JobsPage() {
           <div style={styles.searchArea}>
             <input
               type="text"
-              placeholder="Job title or skill (e.g., AML, React, Python)"
+              placeholder="Job title or skill (e.g., React, Python)"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={styles.searchInput}
@@ -79,7 +79,7 @@ export default function JobsPage() {
             />
             <input
               type="text"
-              placeholder="Location (e.g., Mumbai, Bangalore, India)"
+              placeholder="Location (e.g., Mumbai, Bangalore)"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               style={styles.locationInput}
