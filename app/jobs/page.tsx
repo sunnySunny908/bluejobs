@@ -8,13 +8,13 @@ export default function JobsPage() {
   const router = useRouter();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("developer");
-  const [location, setLocation] = useState("india");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [location, setLocation] = useState("");
 
   const fetchJobs = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/jobs?title=${searchTerm}&location=${location}`);
+      const res = await fetch(`/api/jobs?title=${searchTerm || "developer"}&location=${location || "india"}`);
       const data = await res.json();
       setJobs(data.jobs || []);
     } catch (error) {
@@ -30,7 +30,6 @@ export default function JobsPage() {
 
   return (
     <div style={styles.container}>
-      {/* Navigation Bar - NO LOGIN BUTTON */}
       <nav style={styles.navbar}>
         <div style={styles.navContent}>
           <div style={styles.logo}>
@@ -49,7 +48,6 @@ export default function JobsPage() {
         </div>
       </nav>
 
-      {/* Hero Section */}
       <div style={styles.hero}>
         <div style={styles.heroContent}>
           <h1 style={styles.title}>
@@ -62,11 +60,11 @@ export default function JobsPage() {
       </div>
 
       <div style={styles.mainContent}>
-        {/* Search Card */}
         <div style={styles.searchCard}>
-          <div style={styles.searchIcon}>🔍</div>
-          <h2 style={styles.searchTitle}>Search Jobs</h2>
-          <p style={styles.searchDesc}>Find jobs by title, skills, or location</p>
+          <div style={styles.searchHeader}>
+            <h2 style={styles.searchTitle}>🔍 Search Jobs</h2>
+            <p style={styles.searchDesc}>Find jobs by title, skills, or location</p>
+          </div>
           
           <div style={styles.searchArea}>
             <input
@@ -86,22 +84,22 @@ export default function JobsPage() {
               onKeyDown={(e) => e.key === 'Enter' && fetchJobs()}
             />
             <button onClick={fetchJobs} style={styles.searchBtn}>
-              🔍 Search Jobs
+              Search Jobs
             </button>
           </div>
         </div>
 
-        {/* Results Header */}
         <div style={styles.resultsHeader}>
           <h3 style={styles.resultsTitle}>
             {loading ? "Searching..." : `Found ${jobs.length} jobs`}
           </h3>
           {!loading && jobs.length > 0 && (
-            <p style={styles.resultsSubtitle}>Showing results for "{searchTerm}" in {location}</p>
+            <p style={styles.resultsSubtitle}>
+              Showing results for "{searchTerm || "developer"}" in {location || "india"}
+            </p>
           )}
         </div>
 
-        {/* Loading State */}
         {loading && (
           <div style={styles.loadingState}>
             <div style={styles.spinner}></div>
@@ -109,7 +107,6 @@ export default function JobsPage() {
           </div>
         )}
 
-        {/* Jobs Grid */}
         {!loading && jobs.length === 0 && (
           <div style={styles.emptyState}>
             <div style={styles.emptyIcon}>📭</div>
@@ -177,14 +174,15 @@ export default function JobsPage() {
 const styles: { [key: string]: React.CSSProperties } = {
   container: {
     minHeight: "100vh",
-    background: "#f9fafb",
+    background: "#f8fafc",
   },
   navbar: {
     background: "white",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
     position: "sticky" as const,
     top: 0,
     zIndex: 100,
+    borderBottom: "1px solid #f1f5f9",
   },
   navContent: {
     maxWidth: 1200,
@@ -195,18 +193,20 @@ const styles: { [key: string]: React.CSSProperties } = {
     alignItems: "center",
   },
   logo: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: "bold",
   },
   navLinks: {
     display: "flex",
-    gap: 24,
+    gap: 28,
     alignItems: "center",
   },
   navLink: {
     textDecoration: "none",
-    color: "#4b5563",
+    color: "#64748b",
     fontWeight: 500,
+    fontSize: 14,
+    transition: "color 0.2s",
   },
   activeNavLink: {
     color: "#2563eb",
@@ -219,62 +219,60 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: "#ef4444",
     cursor: "pointer",
     fontWeight: 500,
-    padding: "8px 16px",
-    borderRadius: 8,
+    fontSize: 14,
+    padding: "6px 14px",
+    borderRadius: 6,
   },
   hero: {
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-    padding: "60px 24px",
+    background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+    padding: "56px 24px 48px",
     textAlign: "center" as const,
+    borderBottom: "4px solid #f59e0b",
   },
   heroContent: {
     maxWidth: 800,
     margin: "0 auto",
   },
   title: {
-    fontSize: 48,
+    fontSize: 44,
     color: "white",
-    marginBottom: 16,
+    marginBottom: 12,
+    fontWeight: 700,
   },
   subtitle: {
     fontSize: 18,
-    color: "rgba(255,255,255,0.9)",
+    color: "rgba(255,255,255,0.8)",
   },
   mainContent: {
     maxWidth: 1200,
-    margin: "-40px auto 0",
+    margin: "-32px auto 0",
     padding: "0 24px 60px",
   },
   searchCard: {
-    background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
-    borderRadius: 24,
-    padding: 40,
-    textAlign: "center" as const,
-    boxShadow: "0 20px 40px -12px rgba(0,0,0,0.15)",
-    marginBottom: 40,
-    border: "1px solid rgba(102, 126, 234, 0.1)",
+    background: "white",
+    borderRadius: 16,
+    padding: 32,
+    boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+    marginBottom: 32,
+    border: "1px solid #f1f5f9",
   },
-  searchIcon: {
-    fontSize: 56,
-    marginBottom: 16,
+  searchHeader: {
+    marginBottom: 20,
   },
   searchTitle: {
-    fontSize: 24,
-    marginBottom: 8,
+    fontSize: 20,
+    fontWeight: 600,
     color: "#1f2937",
+    marginBottom: 4,
   },
   searchDesc: {
-    color: "#6b7280",
-    marginBottom: 32,
-    fontSize: 16,
+    fontSize: 14,
+    color: "#64748b",
   },
   searchArea: {
     display: "flex",
     gap: 16,
-    justifyContent: "center",
-    alignItems: "center",
     flexWrap: "wrap" as const,
-    marginBottom: 24,
   },
   searchInput: {
     flex: 1,
@@ -283,7 +281,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     borderRadius: 8,
     fontSize: 14,
     outline: "none",
-    minWidth: 200,
+    minWidth: 180,
+    transition: "border-color 0.2s",
   },
   locationInput: {
     flex: 1,
@@ -292,29 +291,31 @@ const styles: { [key: string]: React.CSSProperties } = {
     borderRadius: 8,
     fontSize: 14,
     outline: "none",
-    minWidth: 200,
+    minWidth: 180,
+    transition: "border-color 0.2s",
   },
   searchBtn: {
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+    background: "#2563eb",
     color: "white",
     border: "none",
-    padding: "14px 32px",
-    borderRadius: 12,
-    fontSize: 16,
+    padding: "12px 32px",
+    borderRadius: 8,
+    fontSize: 14,
     fontWeight: 600,
     cursor: "pointer",
-    transition: "all 0.3s ease",
+    transition: "background 0.2s",
   },
   resultsHeader: {
     marginBottom: 24,
   },
   resultsTitle: {
-    fontSize: 20,
+    fontSize: 18,
     color: "#1f2937",
     marginBottom: 4,
+    fontWeight: 600,
   },
   resultsSubtitle: {
-    color: "#6b7280",
+    color: "#64748b",
     fontSize: 14,
   },
   loadingState: {
@@ -322,12 +323,13 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: 60,
     background: "white",
     borderRadius: 16,
+    border: "1px solid #f1f5f9",
   },
   spinner: {
-    width: 50,
-    height: 50,
-    border: "4px solid #e2e8f0",
-    borderTop: "4px solid #2563eb",
+    width: 40,
+    height: 40,
+    border: "3px solid #e2e8f0",
+    borderTop: "3px solid #2563eb",
     borderRadius: "50%",
     animation: "spin 1s linear infinite",
     margin: "0 auto 16px",
@@ -337,39 +339,42 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: 60,
     background: "white",
     borderRadius: 16,
+    border: "1px solid #f1f5f9",
   },
   emptyIcon: {
-    fontSize: 64,
+    fontSize: 48,
     marginBottom: 16,
   },
   emptyTitle: {
-    fontSize: 20,
+    fontSize: 18,
     marginBottom: 8,
     color: "#1f2937",
   },
   emptyDesc: {
-    color: "#6b7280",
+    color: "#64748b",
     marginBottom: 20,
   },
   resetBtn: {
-    background: "#6b7280",
-    color: "white",
+    background: "#f1f5f9",
+    color: "#475569",
     border: "none",
     padding: "10px 20px",
     borderRadius: 8,
     cursor: "pointer",
+    fontSize: 14,
   },
   jobsGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(350px, 1fr))",
+    gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
     gap: 24,
   },
   jobCard: {
     background: "white",
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 20,
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-    transition: "transform 0.3s, box-shadow 0.3s",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+    border: "1px solid #f1f5f9",
+    transition: "transform 0.2s, box-shadow 0.2s",
   },
   jobHeader: {
     display: "flex",
@@ -378,13 +383,13 @@ const styles: { [key: string]: React.CSSProperties } = {
     marginBottom: 12,
   },
   jobTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: 600,
     marginBottom: 4,
     color: "#1f2937",
   },
   jobCompany: {
-    color: "#6b7280",
+    color: "#64748b",
     fontSize: 14,
   },
   jobBadge: {
@@ -408,20 +413,19 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontWeight: 600,
   },
   jobLocation: {
-    color: "#6b7280",
+    color: "#64748b",
     fontSize: 14,
     marginBottom: 12,
   },
   jobDescription: {
-    color: "#4b5563",
+    color: "#475569",
     fontSize: 13,
-    lineHeight: 1.5,
+    lineHeight: 1.6,
     marginBottom: 16,
   },
   jobFooter: {
-    borderTop: "1px solid #e2e8f0",
+    borderTop: "1px solid #f1f5f9",
     paddingTop: 12,
-    marginTop: 8,
   },
   applyLink: {
     display: "block",
@@ -429,23 +433,28 @@ const styles: { [key: string]: React.CSSProperties } = {
     background: "#2563eb",
     color: "white",
     textDecoration: "none",
-    fontWeight: 600,
+    fontWeight: 500,
     fontSize: 14,
     padding: "10px 20px",
     borderRadius: 8,
-    transition: "all 0.3s ease",
-    cursor: "pointer",
-    border: "none",
+    transition: "background 0.2s",
   },
 };
 
-// Add animation
 if (typeof document !== 'undefined') {
   const style = document.createElement('style');
   style.textContent = `
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
+    }
+    [class*="jobCard"]:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    }
+    input:focus {
+      border-color: #2563eb !important;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
     }
   `;
   document.head.appendChild(style);
