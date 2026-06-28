@@ -30,7 +30,7 @@ export default function JobsPage() {
 
   return (
     <div style={styles.container}>
-      {/* Navigation Bar - Same as Homepage */}
+      {/* Navigation Bar - NO LOGIN BUTTON */}
       <nav style={styles.navbar}>
         <div style={styles.navContent}>
           <div style={styles.logo}>
@@ -38,17 +38,12 @@ export default function JobsPage() {
             <span style={{ color: "#f59e0b" }}>jobs</span>
           </div>
           <div style={styles.navLinks}>
-            <a href="/" style={styles.navLink}>Home</a>
+            <a href="/dashboard" style={styles.navLink}>Dashboard</a>
             <a href="/jobs" style={{ ...styles.navLink, ...styles.activeNavLink }}>Browse Jobs</a>
-            {session ? (
-              <>
-                <a href="/dashboard" style={styles.navLink}>Dashboard</a>
-                <button onClick={() => router.push("/api/auth/signout")} style={styles.logoutBtn}>
-                  Logout
-                </button>
-              </>
-            ) : (
-              <a href="/login" style={styles.loginBtn}>Login</a>
+            {session && (
+              <button onClick={() => router.push("/api/auth/signout")} style={styles.logoutBtn}>
+                Logout
+              </button>
             )}
           </div>
         </div>
@@ -80,7 +75,7 @@ export default function JobsPage() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={styles.searchInput}
-              onKeyPress={(e) => e.key === 'Enter' && fetchJobs()}
+              onKeyDown={(e) => e.key === 'Enter' && fetchJobs()}
             />
             <input
               type="text"
@@ -88,7 +83,7 @@ export default function JobsPage() {
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               style={styles.locationInput}
-              onKeyPress={(e) => e.key === 'Enter' && fetchJobs()}
+              onKeyDown={(e) => e.key === 'Enter' && fetchJobs()}
             />
             <button onClick={fetchJobs} style={styles.searchBtn}>
               🔍 Search Jobs
@@ -218,14 +213,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     borderBottom: "2px solid #2563eb",
     paddingBottom: 4,
   },
-  loginBtn: {
-    background: "#2563eb",
-    color: "white",
-    padding: "8px 20px",
-    borderRadius: 8,
-    textDecoration: "none",
-    fontWeight: 500,
-  },
   logoutBtn: {
     background: "none",
     border: "none",
@@ -290,27 +277,13 @@ const styles: { [key: string]: React.CSSProperties } = {
     marginBottom: 24,
   },
   searchInput: {
-    width: "100%",
-    padding: "14px 16px 14px 44px",
-    border: "2px solid #e2e8f0",
-    borderRadius: 12,
-    fontSize: 15,
-    outline: "none",
-    transition: "all 0.3s ease",
-    background: "white",
-  },
-  
-  searchInputWrapper: {
     flex: 1,
-    position: "relative" as const,
+    padding: "12px 16px",
+    border: "1px solid #e2e8f0",
+    borderRadius: 8,
+    fontSize: 14,
+    outline: "none",
     minWidth: 200,
-  },
-  inputIcon: {
-    position: "absolute" as const,
-    left: 14,
-    top: "50%",
-    transform: "translateY(-50%)",
-    fontSize: 18,
   },
   locationInput: {
     flex: 1,
@@ -319,6 +292,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     borderRadius: 8,
     fontSize: 14,
     outline: "none",
+    minWidth: 200,
   },
   searchBtn: {
     background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
@@ -330,34 +304,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontWeight: 600,
     cursor: "pointer",
     transition: "all 0.3s ease",
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-  },
-  popularSearches: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 12,
-    flexWrap: "wrap" as const,
-    marginTop: 8,
-    paddingTop: 16,
-    borderTop: "1px solid #e2e8f0",
-  },
-  popularLabel: {
-    fontSize: 14,
-    color: "#6b7280",
-    fontWeight: 500,
-  },
-  popularTag: {
-    background: "#f1f5f9",
-    border: "none",
-    padding: "6px 14px",
-    borderRadius: 20,
-    fontSize: 13,
-    color: "#475569",
-    cursor: "pointer",
-    transition: "all 0.2s ease",
   },
   resultsHeader: {
     marginBottom: 24,
@@ -480,7 +426,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   applyLink: {
     display: "block",
     textAlign: "center" as const,
-    background: "linear-gradient(135deg, #0640df 0%, #ffb428 100%)",
+    background: "#2563eb",
     color: "white",
     textDecoration: "none",
     fontWeight: 600,
@@ -490,10 +436,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     transition: "all 0.3s ease",
     cursor: "pointer",
     border: "none",
-  },
-   applyBtnHover: {
-    transform: "translateY(-2px)",
-    boxShadow: "0 4px 12px rgba(102, 126, 234, 0.4)",
   },
 };
 
