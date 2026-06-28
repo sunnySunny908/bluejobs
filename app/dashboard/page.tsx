@@ -9,7 +9,7 @@ declare global {
   }
 }
 
-// 50 Fortune 500 companies with Google Favicon Service
+// 50 Fortune 500 companies
 const trustedCompanies = [
   { name: "Google", domain: "google.com" },
   { name: "Microsoft", domain: "microsoft.com" },
@@ -100,7 +100,7 @@ export default function Dashboard() {
     return (
       <div style={styles.loadingContainer}>
         <div style={styles.spinner}></div>
-        <p>Loading your dashboard...</p>
+        <p>Loading...</p>
       </div>
     );
   }
@@ -129,12 +129,12 @@ export default function Dashboard() {
           });
           const data = await verifyRes.json();
           if (data.success) {
-            setMessage("✅ Payment successful! 100 applies added.");
+            setMessage("✅ Payment successful!");
             setShowPaymentPopup(false);
             if (update) update();
             setTimeout(() => setMessage(""), 3000);
           } else {
-            setMessage("❌ Payment verification failed");
+            setMessage("❌ Payment failed");
           }
         },
         prefill: {
@@ -158,7 +158,7 @@ export default function Dashboard() {
     }
 
     if (appliedJobs.has(job.id)) {
-      setMessage("Already applied to this job!");
+      setMessage("Already applied!");
       setTimeout(() => setMessage(""), 2000);
       return;
     }
@@ -171,7 +171,7 @@ export default function Dashboard() {
 
     if (res.ok) {
       setAppliedJobs(new Set([...appliedJobs, job.id]));
-      setMessage("✅ Redirecting to application...");
+      setMessage("✅ Redirecting...");
       setTimeout(() => {
         window.open(job.url, "_blank");
         setMessage("");
@@ -200,7 +200,7 @@ export default function Dashboard() {
         setSkills(data.extractedSkills || []);
         setJobs(data.matchedJobs || []);
         setAppliedJobs(new Set());
-        setMessage("✅ " + jobs.length + " fresh jobs found! (Last 7 days)");
+        setMessage("✅ " + (data.matchedJobs?.length || 0) + " fresh jobs found!");
       } else {
         setMessage("❌ " + (data.error || "Upload failed"));
       }
@@ -253,7 +253,6 @@ export default function Dashboard() {
 
   return (
     <div style={styles.container}>
-      {/* Navigation Bar */}
       <nav style={styles.navbar}>
         <div style={styles.navContent}>
           <div style={styles.logo}>
@@ -262,7 +261,7 @@ export default function Dashboard() {
           </div>
           <div style={styles.navLinks}>
             <a href="/dashboard" style={{ ...styles.navLink, ...styles.activeNavLink }}>Dashboard</a>
-            <a href="/jobs" style={styles.navLink}>Browse Jobs</a>
+            <a href="/jobs" style={styles.navLink}>Browse</a>
             {session && (
               <button onClick={() => router.push("/api/auth/signout")} style={styles.logoutBtn}>
                 Logout
@@ -272,250 +271,215 @@ export default function Dashboard() {
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <div style={styles.hero}>
+      {/* 🎯 HERO - CV Upload at First Glance */}
+      <div style={styles.heroSection}>
+        <div style={styles.heroGradient}></div>
         <div style={styles.heroContent}>
           <div style={styles.badge}>
             <span style={styles.badgeDot}></span>
-            Fresh Jobs | Updated Daily
+            <span>7-Day Fresh Jobs</span>
           </div>
-          <h1 style={styles.welcomeText}>
-            Hello, <span style={{ color: "#f59e0b" }}>{userName.split(' ')[0]}</span>! 👋
+          
+          <h1 style={styles.heroTitle}>
+            Upload Your CV &<br />
+            <span style={{ color: "#f59e0b" }}>Get Matched in Seconds</span>
           </h1>
-          <p style={styles.subtitle}>
-            Upload your CV and get <strong>AI-matched job alerts</strong> — 
-            only <span style={{ color: "#f59e0b" }}>7-day fresh</span> postings.
-          </p>
-          <p style={styles.subtext}>
-            70km radius · Instant relevance · No spam
-          </p>
-        </div>
-      </div>
-
-      <div style={styles.mainContent}>
-        {/* Trusted Companies Section */}
-        <div style={styles.trustedCardFull}>
-          <div style={styles.trustedHeader}>
-            <span style={styles.trustedText}>🏢 Trusted by candidates at 500+ Fortune companies</span>
-          </div>
           
-          <div style={styles.scrollContainer}>
-            <button onClick={scrollLeft} style={styles.scrollBtnLeft}>
-              ‹
-            </button>
-            <div ref={scrollRef} style={styles.companyGridHorizontal}>
-              {trustedCompanies.map((company, idx) => (
-                <div key={idx} style={styles.companyLogoWrapper}>
-                  {!logoErrors.has(company.name) ? (
-                    <img 
-                      src={getLogoUrl(company.domain)} 
-                      alt={company.name}
-                      style={styles.companyLogoImg}
-                      onError={() => handleLogoError(company.name)}
-                    />
-                  ) : (
-                    <div style={styles.companyLogoFallback}>
-                      <span style={styles.companyLogoFallbackText}>
-                        {company.name.charAt(0)}
-                      </span>
-                    </div>
-                  )}
-                  <div style={styles.companyTooltip}>{company.name}</div>
-                </div>
-              ))}
-            </div>
-            <button onClick={scrollRight} style={styles.scrollBtnRight}>
-              ›
-            </button>
-          </div>
-          
-          <div style={styles.moreCompanies}>
-            {trustedCompanies.length} Fortune 500 companies · 1M+ active jobs · 50K+ hires monthly
-          </div>
-        </div>
+          <p style={styles.heroSubtext}>
+            <span style={styles.heroIcon}>⚡</span> AI scans your resume · 
+            <span style={{ color: "#f59e0b" }}> 7-day fresh</span> jobs · 
+            <span style={styles.heroIcon}>📍</span> 70km radius
+          </p>
 
-        {/* Message Toast */}
-        {message && (
-          <div style={styles.messageToast}>
-            {message}
-          </div>
-        )}
-
-        {/* Apply Limit Warning */}
-        {!canApply && (
-          <div style={styles.limitWarning}>
-            <span>🚀 You've used all free applications! </span>
-            <button onClick={() => setShowPaymentPopup(true)} style={styles.upgradeLink}>
-              Upgrade for ₹99 →
-            </button>
-          </div>
-        )}
-
-        {/* Payment Popup */}
-        {showPaymentPopup && (
-          <div style={styles.paymentOverlay}>
-            <div style={styles.paymentCard}>
-              <h3 style={styles.paymentTitle}>Unlock More Opportunities</h3>
-              <p style={styles.paymentDesc}>
-                Get <strong>100 extra job applications</strong> for just <strong style={{ color: "#2563eb", fontSize: 24 }}>₹99</strong>
-              </p>
-              <button onClick={handlePayment} style={styles.payBtn}>
-                Pay ₹99 via UPI/Card
-              </button>
-              <button onClick={() => setShowPaymentPopup(false)} style={styles.cancelBtn}>
-                Maybe Later
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Upload Card - Professional Design */}
-        <div style={styles.uploadCard}>
-          <div style={styles.uploadHeader}>
-            <div style={styles.uploadIconWrapper}>
-              <span style={styles.uploadIcon}>📄</span>
-            </div>
-            <div style={styles.uploadHeaderText}>
-              <h2 style={styles.uploadTitle}>Upload Your CV</h2>
-              <p style={styles.uploadDesc}>
-                AI scans your resume and finds <strong>highly relevant jobs</strong> posted in the <strong>last 7 days</strong>.
-              </p>
-            </div>
-          </div>
-
+          {/* 📤 UPLOAD CARD - HERO */}
           <div 
             style={{
-              ...styles.uploadArea,
-              ...(isDragging ? styles.uploadAreaDragging : {})
+              ...styles.uploadHero,
+              ...(isDragging ? styles.uploadHeroDragging : {})
             }}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
           >
-            <input
-              type="file"
-              id="cv-upload"
-              accept=".pdf,.docx,.txt"
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
-              style={{ display: "none" }}
-            />
-            <div style={styles.uploadPlaceholder}>
-              <span style={styles.uploadPlaceholderIcon}>📁</span>
-              <p style={styles.uploadPlaceholderText}>
-                {file ? file.name : "Drag & drop your CV, or click to browse"}
-              </p>
-              <p style={styles.uploadPlaceholderSub}>PDF, DOCX, TXT · Max 5MB</p>
+            <div style={styles.uploadHeroIcon}>📄</div>
+            <h2 style={styles.uploadHeroTitle}>
+              {file ? file.name : "Drop your CV here"}
+            </h2>
+            <p style={styles.uploadHeroSub}>
+              {file ? `${(file.size / 1024).toFixed(0)} KB · Ready to upload` : "PDF, DOCX, TXT · Max 5MB"}
+            </p>
+            
+            <div style={styles.uploadHeroActions}>
+              <label htmlFor="cv-upload-hero" style={styles.uploadHeroBrowse}>
+                📁 Browse Files
+              </label>
+              <input
+                type="file"
+                id="cv-upload-hero"
+                accept=".pdf,.docx,.txt"
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                style={{ display: "none" }}
+              />
+              <button
+                onClick={handleUpload}
+                disabled={uploading || !file}
+                style={{
+                  ...styles.uploadHeroBtn,
+                  ...((uploading || !file) ? styles.uploadHeroBtnDisabled : {})
+                }}
+              >
+                {uploading ? (
+                  <>
+                    <span style={styles.spinnerSmall}></span>
+                    Analyzing...
+                  </>
+                ) : (
+                  "🚀 Find Jobs Now"
+                )}
+              </button>
             </div>
-            <label htmlFor="cv-upload" style={styles.fileLabel}>
-              Choose File
-            </label>
-            <button
-              onClick={handleUpload}
-              disabled={uploading || !file}
-              style={{
-                ...styles.uploadBtn,
-                ...((uploading || !file) ? styles.uploadBtnDisabled : {})
-              }}
-            >
-              {uploading ? (
-                <>
-                  <span style={styles.spinnerSmall}></span>
-                  Analyzing CV...
-                </>
-              ) : (
-                "Find Jobs →"
-              )}
-            </button>
+
+            <div style={styles.uploadHeroFeatures}>
+              <span style={styles.uploadHeroFeature}>✅ AI Matching</span>
+              <span style={styles.uploadHeroFeature}>✅ Last 7 Days</span>
+              <span style={styles.uploadHeroFeature}>✅ Direct Apply</span>
+            </div>
           </div>
 
-          <div style={styles.uploadFooter}>
-            <span style={styles.uploadFooterIcon}>⚡</span>
-            <span style={styles.uploadFooterText}>
-              <strong>Instant AI matching.</strong> Only jobs from the last 7 days. No outdated listings.
-            </span>
+          {/* Trusted Companies */}
+          <div style={styles.trustedCardFull}>
+            <div style={styles.trustedHeader}>
+              <span style={styles.trustedText}>🏢 Trusted by 500+ Fortune companies</span>
+            </div>
+            <div style={styles.scrollContainer}>
+              <button onClick={scrollLeft} style={styles.scrollBtnLeft}>‹</button>
+              <div ref={scrollRef} style={styles.companyGridHorizontal}>
+                {trustedCompanies.slice(0, 20).map((company, idx) => (
+                  <div key={idx} style={styles.companyLogoWrapper}>
+                    {!logoErrors.has(company.name) ? (
+                      <img 
+                        src={getLogoUrl(company.domain)} 
+                        alt={company.name}
+                        style={styles.companyLogoImg}
+                        onError={() => handleLogoError(company.name)}
+                      />
+                    ) : (
+                      <div style={styles.companyLogoFallback}>
+                        <span style={styles.companyLogoFallbackText}>
+                          {company.name.charAt(0)}
+                        </span>
+                      </div>
+                    )}
+                    <div style={styles.companyTooltip}>{company.name}</div>
+                  </div>
+                ))}
+              </div>
+              <button onClick={scrollRight} style={styles.scrollBtnRight}>›</button>
+            </div>
           </div>
         </div>
-
-        {/* Skills Section */}
-        {skills.length > 0 && (
-          <div style={styles.skillsCard}>
-            <h3 style={styles.sectionTitle}>
-              🎯 Skills Detected
-            </h3>
-            <div style={styles.skillsContainer}>
-              {skills.map((skill, idx) => (
-                <span key={idx} style={styles.skillTag}>
-                  {skill}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Jobs Section */}
-        {jobs.length > 0 && (
-          <div>
-            <h3 style={styles.sectionTitle}>
-              💼 Matching Jobs ({jobs.length})
-            </h3>
-            <div style={styles.jobsGrid}>
-              {jobs.map((job, idx) => (
-                <div key={idx} style={styles.jobCard}>
-                  <div style={styles.jobHeader}>
-                    <div>
-                      <h4 style={styles.jobTitle}>{job.title}</h4>
-                      <p style={styles.jobCompany}>{job.company}</p>
-                    </div>
-                    <div style={styles.matchBadge}>
-                      {job.matchPercentage || Math.floor(Math.random() * 30) + 60}% Match
-                    </div>
-                  </div>
-                  
-                  {job.location && (
-                    <p style={styles.jobLocation}>📍 {job.location}</p>
-                  )}
-                  
-                  {job.matchingSkills && job.matchingSkills.length > 0 && (
-                    <div style={styles.matchingSkills}>
-                      <span style={styles.matchingSkillsLabel}>Matching skills:</span>
-                      {job.matchingSkills.slice(0, 3).map((skill: string, i: number) => (
-                        <span key={i} style={styles.smallSkillTag}>{skill}</span>
-                      ))}
-                    </div>
-                  )}
-                  
-                  <button
-                    onClick={() => handleApply(job)}
-                    disabled={appliedJobs.has(job.id)}
-                    style={{
-                      ...styles.applyBtn,
-                      ...(appliedJobs.has(job.id) ? styles.applyBtnDisabled : {})
-                    }}
-                  >
-                    {appliedJobs.has(job.id) ? "✓ Applied" : "Apply Now →"}
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Empty State */}
-        {jobs.length === 0 && !uploading && (
-          <div style={styles.emptyState}>
-            <div style={styles.emptyIcon}>📄</div>
-            <h3 style={styles.emptyTitle}>Upload your CV to get started</h3>
-            <p style={styles.emptyDesc}>
-              We'll analyze your skills and find the <strong>best opportunities</strong> from the last 7 days.
-            </p>
-            <div style={styles.emptyFeatureList}>
-              <span style={styles.emptyFeature}>✅ AI-powered matching</span>
-              <span style={styles.emptyFeature}>✅ Last 7 days jobs</span>
-              <span style={styles.emptyFeature}>✅ 70km radius</span>
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* Message Toast */}
+      {message && (
+        <div style={styles.messageToast}>
+          {message}
+        </div>
+      )}
+
+      {/* Apply Limit Warning */}
+      {!canApply && (
+        <div style={styles.limitWarning}>
+          <span>🚀 Free applies used! </span>
+          <button onClick={() => setShowPaymentPopup(true)} style={styles.upgradeLink}>
+            Upgrade ₹99 →
+          </button>
+        </div>
+      )}
+
+      {/* Payment Popup */}
+      {showPaymentPopup && (
+        <div style={styles.paymentOverlay}>
+          <div style={styles.paymentCard}>
+            <h3 style={styles.paymentTitle}>Unlock More</h3>
+            <p style={styles.paymentDesc}>
+              <strong>100 extra applies</strong> for <strong style={{ color: "#2563eb", fontSize: 24 }}>₹99</strong>
+            </p>
+            <button onClick={handlePayment} style={styles.payBtn}>Pay ₹99</button>
+            <button onClick={() => setShowPaymentPopup(false)} style={styles.cancelBtn}>Later</button>
+          </div>
+        </div>
+      )}
+
+      {/* Skills Section */}
+      {skills.length > 0 && (
+        <div style={styles.skillsCard}>
+          <h3 style={styles.sectionTitle}>🎯 Skills Detected</h3>
+          <div style={styles.skillsContainer}>
+            {skills.map((skill, idx) => (
+              <span key={idx} style={styles.skillTag}>{skill}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Jobs Section */}
+      {jobs.length > 0 && (
+        <div>
+          <h3 style={styles.sectionTitle}>💼 Matching Jobs ({jobs.length})</h3>
+          <div style={styles.jobsGrid}>
+            {jobs.map((job, idx) => (
+              <div key={idx} style={styles.jobCard}>
+                <div style={styles.jobHeader}>
+                  <div>
+                    <h4 style={styles.jobTitle}>{job.title}</h4>
+                    <p style={styles.jobCompany}>{job.company}</p>
+                  </div>
+                  <div style={styles.matchBadge}>
+                    {job.matchPercentage || Math.floor(Math.random() * 30) + 60}%
+                  </div>
+                </div>
+                {job.location && (
+                  <p style={styles.jobLocation}>📍 {job.location}</p>
+                )}
+                {job.matchingSkills && job.matchingSkills.length > 0 && (
+                  <div style={styles.matchingSkills}>
+                    {job.matchingSkills.slice(0, 3).map((skill: string, i: number) => (
+                      <span key={i} style={styles.smallSkillTag}>{skill}</span>
+                    ))}
+                  </div>
+                )}
+                <button
+                  onClick={() => handleApply(job)}
+                  disabled={appliedJobs.has(job.id)}
+                  style={{
+                    ...styles.applyBtn,
+                    ...(appliedJobs.has(job.id) ? styles.applyBtnDisabled : {})
+                  }}
+                >
+                  {appliedJobs.has(job.id) ? "✓ Applied" : "Apply Now →"}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {jobs.length === 0 && !uploading && (
+        <div style={styles.emptyState}>
+          <div style={styles.emptyIcon}>📄</div>
+          <h3 style={styles.emptyTitle}>Upload your CV to get started</h3>
+          <p style={styles.emptyDesc}>
+            AI scans your resume and finds <strong>7-day fresh jobs</strong> near you.
+          </p>
+          <div style={styles.emptyFeatureList}>
+            <span style={styles.emptyFeature}>✅ AI Matching</span>
+            <span style={styles.emptyFeature}>✅ 7 Days Fresh</span>
+            <span style={styles.emptyFeature}>✅ 70km Radius</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -562,18 +526,18 @@ const styles: { [key: string]: React.CSSProperties } = {
   navContent: {
     maxWidth: 1200,
     margin: "0 auto",
-    padding: "16px 24px",
+    padding: "14px 20px",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
   },
   logo: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: "bold",
   },
   navLinks: {
     display: "flex",
-    gap: 28,
+    gap: 20,
     alignItems: "center",
   },
   navLink: {
@@ -597,16 +561,26 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: 14,
     padding: "6px 14px",
     borderRadius: 6,
-    transition: "background 0.2s",
   },
-  hero: {
-    background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
-    padding: "64px 24px 56px",
-    textAlign: "center" as const,
-    borderBottom: "4px solid #f59e0b",
+  heroSection: {
+    position: "relative" as const,
+    background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
+    padding: "32px 20px 40px",
+    overflow: "hidden",
+  },
+  heroGradient: {
+    position: "absolute" as const,
+    top: -100,
+    right: -100,
+    width: 300,
+    height: 300,
+    background: "radial-gradient(circle, rgba(37,99,235,0.15) 0%, transparent 70%)",
+    borderRadius: "50%",
   },
   heroContent: {
-    maxWidth: 800,
+    position: "relative" as const,
+    zIndex: 2,
+    maxWidth: 700,
     margin: "0 auto",
   },
   badge: {
@@ -616,11 +590,11 @@ const styles: { [key: string]: React.CSSProperties } = {
     background: "rgba(245, 158, 11, 0.15)",
     border: "1px solid rgba(245, 158, 11, 0.25)",
     borderRadius: 50,
-    padding: "6px 16px",
+    padding: "5px 14px",
     color: "#f59e0b",
-    fontSize: 12,
-    fontWeight: 500,
-    marginBottom: 20,
+    fontSize: 11,
+    fontWeight: 600,
+    marginBottom: 16,
     textTransform: "uppercase" as const,
     letterSpacing: 0.5,
   },
@@ -631,102 +605,175 @@ const styles: { [key: string]: React.CSSProperties } = {
     borderRadius: "50%",
     animation: "pulse 1.5s infinite",
   },
-  welcomeText: {
-    fontSize: 44,
+  heroTitle: {
+    fontSize: 32,
     color: "white",
-    marginBottom: 12,
     fontWeight: 700,
+    lineHeight: 1.2,
+    marginBottom: 12,
   },
-  subtitle: {
-    fontSize: 18,
-    color: "rgba(255,255,255,0.8)",
-    marginBottom: 8,
-    lineHeight: 1.6,
-  },
-  subtext: {
+  heroSubtext: {
     fontSize: 14,
-    color: "rgba(255,255,255,0.5)",
-    letterSpacing: 0.3,
+    color: "rgba(255,255,255,0.7)",
+    marginBottom: 20,
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    flexWrap: "wrap" as const,
   },
-  mainContent: {
-    maxWidth: 1200,
-    margin: "-32px auto 0",
-    padding: "0 24px 60px",
+  heroIcon: {
+    fontSize: 16,
   },
-  trustedCardFull: {
+  uploadHero: {
     background: "white",
-    borderRadius: 16,
-    padding: "20px 24px",
-    marginBottom: 24,
-    boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-    border: "1px solid #f1f5f9",
+    borderRadius: 20,
+    padding: "24px 20px 20px",
+    textAlign: "center" as const,
+    boxShadow: "0 8px 32px rgba(37,99,235,0.15)",
+    border: "2px solid rgba(37,99,235,0.1)",
+    transition: "all 0.3s",
+    marginBottom: 20,
   },
-  trustedHeader: {
+  uploadHeroDragging: {
+    borderColor: "#2563eb",
+    background: "#eff6ff",
+    boxShadow: "0 8px 40px rgba(37,99,235,0.25)",
+  },
+  uploadHeroIcon: {
+    fontSize: 44,
+    display: "block",
+    marginBottom: 8,
+  },
+  uploadHeroTitle: {
+    fontSize: 20,
+    fontWeight: 600,
+    color: "#1f2937",
+    marginBottom: 4,
+  },
+  uploadHeroSub: {
+    fontSize: 13,
+    color: "#94a3b8",
     marginBottom: 16,
   },
+  uploadHeroActions: {
+    display: "flex",
+    gap: 12,
+    justifyContent: "center",
+    flexWrap: "wrap" as const,
+  },
+  uploadHeroBrowse: {
+    background: "#f1f5f9",
+    color: "#475569",
+    padding: "10px 20px",
+    borderRadius: 10,
+    fontSize: 14,
+    fontWeight: 500,
+    cursor: "pointer",
+    transition: "background 0.2s",
+  },
+  uploadHeroBtn: {
+    background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+    color: "white",
+    border: "none",
+    padding: "10px 28px",
+    borderRadius: 10,
+    fontSize: 15,
+    fontWeight: 600,
+    cursor: "pointer",
+    transition: "all 0.2s",
+    minWidth: 140,
+  },
+  uploadHeroBtnDisabled: {
+    background: "#94a3b8",
+    cursor: "not-allowed",
+  },
+  uploadHeroFeatures: {
+    display: "flex",
+    gap: 16,
+    justifyContent: "center",
+    marginTop: 16,
+    paddingTop: 16,
+    borderTop: "1px solid #f1f5f9",
+    flexWrap: "wrap" as const,
+  },
+  uploadHeroFeature: {
+    fontSize: 12,
+    color: "#475569",
+    fontWeight: 500,
+  },
+  trustedCardFull: {
+    background: "rgba(255,255,255,0.06)",
+    backdropFilter: "blur(10px)",
+    borderRadius: 16,
+    padding: "14px 16px",
+    border: "1px solid rgba(255,255,255,0.08)",
+  },
+  trustedHeader: {
+    marginBottom: 12,
+  },
   trustedText: {
-    fontSize: 13,
-    color: "#64748b",
+    fontSize: 12,
+    color: "rgba(255,255,255,0.6)",
     fontWeight: 500,
   },
   scrollContainer: {
     display: "flex",
     alignItems: "center",
-    gap: 12,
+    gap: 8,
   },
   scrollBtnLeft: {
-    width: 32,
-    height: 32,
+    width: 28,
+    height: 28,
     borderRadius: "50%",
-    background: "white",
-    border: "1px solid #e2e8f0",
-    fontSize: 20,
+    background: "rgba(255,255,255,0.1)",
+    border: "1px solid rgba(255,255,255,0.15)",
+    fontSize: 16,
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    color: "#64748b",
+    color: "rgba(255,255,255,0.6)",
     flexShrink: 0,
   },
   scrollBtnRight: {
-    width: 32,
-    height: 32,
+    width: 28,
+    height: 28,
     borderRadius: "50%",
-    background: "white",
-    border: "1px solid #e2e8f0",
-    fontSize: 20,
+    background: "rgba(255,255,255,0.1)",
+    border: "1px solid rgba(255,255,255,0.15)",
+    fontSize: 16,
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    color: "#64748b",
+    color: "rgba(255,255,255,0.6)",
     flexShrink: 0,
   },
   companyGridHorizontal: {
     display: "flex",
     flexDirection: "row" as const,
-    gap: 12,
+    gap: 10,
     overflowX: "auto" as const,
     overflowY: "hidden" as const,
     scrollBehavior: "smooth",
-    padding: "8px 4px",
+    padding: "6px 2px",
     flex: 1,
     msOverflowStyle: "none",
     scrollbarWidth: "thin" as const,
   },
   companyLogoWrapper: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
-    background: "#f8fafc",
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    background: "rgba(255,255,255,0.08)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     position: "relative" as const,
     cursor: "pointer",
     transition: "all 0.2s",
-    border: "1px solid #f1f5f9",
-    padding: 10,
+    border: "1px solid rgba(255,255,255,0.06)",
+    padding: 8,
     flexShrink: 0,
   },
   companyLogoImg: {
@@ -741,16 +788,16 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    background: "#f1f5f9",
+    background: "rgba(255,255,255,0.05)",
   },
   companyLogoFallbackText: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: "bold",
-    color: "#94a3b8",
+    color: "rgba(255,255,255,0.5)",
   },
   companyTooltip: {
     position: "absolute" as const,
-    bottom: -28,
+    bottom: -26,
     left: "50%",
     transform: "translateX(-50%)",
     background: "#1e293b",
@@ -765,31 +812,23 @@ const styles: { [key: string]: React.CSSProperties } = {
     pointerEvents: "none" as const,
     zIndex: 10,
   },
-  moreCompanies: {
-    marginTop: 14,
-    fontSize: 11,
-    color: "#94a3b8",
-    textAlign: "center" as const,
-    paddingTop: 10,
-    borderTop: "1px solid #f1f5f9",
-  },
   messageToast: {
     background: "#1e293b",
     color: "white",
     padding: "12px 20px",
     borderRadius: 10,
-    marginBottom: 20,
+    margin: "16px 20px 0",
     textAlign: "center" as const,
     fontSize: 14,
   },
   limitWarning: {
     background: "#fef3c7",
     borderRadius: 12,
-    padding: "12px 20px",
-    marginBottom: 20,
+    padding: "10px 16px",
+    margin: "16px 20px 0",
     textAlign: "center" as const,
     color: "#92400e",
-    fontSize: 14,
+    fontSize: 13,
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
@@ -803,6 +842,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontWeight: 600,
     cursor: "pointer",
     textDecoration: "underline",
+    fontSize: 13,
   },
   paymentOverlay: {
     position: "fixed" as const,
@@ -815,23 +855,24 @@ const styles: { [key: string]: React.CSSProperties } = {
     alignItems: "center",
     justifyContent: "center",
     zIndex: 1000,
+    padding: 20,
   },
   paymentCard: {
     background: "white",
     borderRadius: 20,
     padding: 32,
     textAlign: "center" as const,
-    maxWidth: 400,
-    width: "90%",
+    maxWidth: 380,
+    width: "100%",
     boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
   },
   paymentTitle: {
-    fontSize: 24,
-    marginBottom: 16,
+    fontSize: 22,
+    marginBottom: 12,
     color: "#1f2937",
   },
   paymentDesc: {
-    fontSize: 16,
+    fontSize: 15,
     marginBottom: 24,
     color: "#6b7280",
   },
@@ -857,174 +898,62 @@ const styles: { [key: string]: React.CSSProperties } = {
     cursor: "pointer",
     width: "100%",
   },
-  uploadCard: {
-    background: "white",
-    borderRadius: 20,
-    padding: 32,
-    boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-    marginBottom: 30,
-    border: "1px solid #f1f5f9",
-  },
-  uploadHeader: {
-    display: "flex",
-    alignItems: "center",
-    gap: 16,
-    marginBottom: 24,
-  },
-  uploadIconWrapper: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    background: "#eff6ff",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  uploadIcon: {
-    fontSize: 24,
-  },
-  uploadHeaderText: {
-    flex: 1,
-  },
-  uploadTitle: {
-    fontSize: 20,
-    fontWeight: 600,
-    color: "#1f2937",
-    marginBottom: 4,
-  },
-  uploadDesc: {
-    fontSize: 14,
-    color: "#64748b",
-    marginBottom: 0,
-  },
-  uploadArea: {
-    display: "flex",
-    flexDirection: "column" as const,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 16,
-    border: "2px dashed #e2e8f0",
-    borderRadius: 16,
-    padding: "32px 24px",
-    transition: "all 0.3s",
-    marginBottom: 16,
-  },
-  uploadAreaDragging: {
-    borderColor: "#2563eb",
-    background: "#eff6ff",
-  },
-  uploadPlaceholder: {
-    textAlign: "center" as const,
-  },
-  uploadPlaceholderIcon: {
-    fontSize: 40,
-    display: "block",
-    marginBottom: 12,
-  },
-  uploadPlaceholderText: {
-    fontSize: 15,
-    color: "#475569",
-    marginBottom: 4,
-  },
-  uploadPlaceholderSub: {
-    fontSize: 12,
-    color: "#94a3b8",
-  },
-  fileLabel: {
-    background: "#f1f5f9",
-    padding: "10px 24px",
-    borderRadius: 8,
-    cursor: "pointer",
-    color: "#475569",
-    fontWeight: 500,
-    fontSize: 14,
-    transition: "background 0.2s",
-  },
-  uploadBtn: {
-    background: "#2563eb",
-    color: "white",
-    border: "none",
-    padding: "12px 32px",
-    borderRadius: 8,
-    fontSize: 16,
-    fontWeight: 600,
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-  uploadBtnDisabled: {
-    background: "#94a3b8",
-    cursor: "not-allowed",
-  },
-  uploadFooter: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    justifyContent: "center",
-    paddingTop: 16,
-    borderTop: "1px solid #f1f5f9",
-  },
-  uploadFooterIcon: {
-    fontSize: 16,
-  },
-  uploadFooterText: {
-    fontSize: 13,
-    color: "#64748b",
-  },
   skillsCard: {
     background: "white",
     borderRadius: 16,
-    padding: 24,
-    marginBottom: 30,
+    padding: 20,
+    margin: "20px 20px 0",
     boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
     border: "1px solid #f1f5f9",
   },
   sectionTitle: {
-    fontSize: 20,
-    marginBottom: 16,
+    fontSize: 18,
+    marginBottom: 14,
     color: "#1f2937",
     fontWeight: 600,
+    padding: "0 20px",
   },
   skillsContainer: {
     display: "flex",
-    gap: 12,
+    gap: 10,
     flexWrap: "wrap" as const,
   },
   skillTag: {
     background: "#eff6ff",
     color: "#2563eb",
-    padding: "6px 16px",
+    padding: "6px 14px",
     borderRadius: 20,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: 500,
   },
   jobsGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
-    gap: 24,
+    gridTemplateColumns: "1fr",
+    gap: 16,
+    padding: "0 20px 40px",
   },
   jobCard: {
     background: "white",
     borderRadius: 16,
-    padding: 20,
+    padding: 18,
     boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
     border: "1px solid #f1f5f9",
-    transition: "transform 0.2s, box-shadow 0.2s",
   },
   jobHeader: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 12,
+    marginBottom: 10,
   },
   jobTitle: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: 600,
-    marginBottom: 4,
+    marginBottom: 2,
     color: "#1f2937",
   },
   jobCompany: {
     color: "#64748b",
-    fontSize: 14,
+    fontSize: 13,
   },
   matchBadge: {
     background: "#dcfce7",
@@ -1036,18 +965,14 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   jobLocation: {
     color: "#64748b",
-    fontSize: 14,
-    marginBottom: 12,
+    fontSize: 13,
+    marginBottom: 10,
   },
   matchingSkills: {
     display: "flex",
     gap: 8,
     flexWrap: "wrap" as const,
-    marginBottom: 16,
-  },
-  matchingSkillsLabel: {
-    fontSize: 12,
-    color: "#64748b",
+    marginBottom: 14,
   },
   smallSkillTag: {
     background: "#f1f5f9",
@@ -1060,8 +985,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     background: "#2563eb",
     color: "white",
     border: "none",
-    padding: "10px 20px",
-    borderRadius: 8,
+    padding: "10px",
+    borderRadius: 10,
     fontSize: 14,
     fontWeight: 500,
     cursor: "pointer",
@@ -1076,31 +1001,33 @@ const styles: { [key: string]: React.CSSProperties } = {
   emptyState: {
     background: "white",
     borderRadius: 16,
-    padding: 60,
+    padding: 40,
     textAlign: "center" as const,
+    margin: "0 20px 40px",
     border: "1px solid #f1f5f9",
   },
   emptyIcon: {
-    fontSize: 48,
-    marginBottom: 16,
+    fontSize: 40,
+    marginBottom: 12,
   },
   emptyTitle: {
-    fontSize: 20,
+    fontSize: 18,
     marginBottom: 8,
     color: "#1f2937",
   },
   emptyDesc: {
     color: "#64748b",
-    marginBottom: 20,
+    marginBottom: 16,
+    fontSize: 14,
   },
   emptyFeatureList: {
     display: "flex",
-    gap: 16,
+    gap: 12,
     justifyContent: "center",
     flexWrap: "wrap" as const,
   },
   emptyFeature: {
-    fontSize: 13,
+    fontSize: 12,
     color: "#475569",
     background: "#f8fafc",
     padding: "4px 12px",
@@ -1121,28 +1048,36 @@ if (typeof document !== 'undefined') {
     }
     [class*="companyLogoWrapper"]:hover {
       transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      background: rgba(255,255,255,0.15);
     }
     [class*="companyLogoWrapper"]:hover [class*="companyTooltip"] {
       opacity: 1;
     }
     [class*="jobCard"]:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     }
-    [class*="scrollBtnLeft"]:hover, [class*="scrollBtnRight"]:hover {
-      background: #f1f5f9;
+    [class*="uploadHeroBrowse"]:hover {
+      background: #e2e8f0;
+    }
+    [class*="uploadHeroBtn"]:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(37,99,235,0.3);
     }
     [class*="companyGridHorizontal"]::-webkit-scrollbar {
-      height: 4px;
+      height: 3px;
     }
     [class*="companyGridHorizontal"]::-webkit-scrollbar-track {
-      background: #f1f5f9;
+      background: rgba(255,255,255,0.05);
       border-radius: 10px;
     }
     [class*="companyGridHorizontal"]::-webkit-scrollbar-thumb {
-      background: #cbd5e1;
+      background: rgba(255,255,255,0.15);
       border-radius: 10px;
+    }
+    input:focus {
+      border-color: #2563eb !important;
+      outline: none;
     }
   `;
   document.head.appendChild(style);
