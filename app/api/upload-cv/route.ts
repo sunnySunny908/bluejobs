@@ -817,7 +817,7 @@ async function extractSkillsWithAI(text: string, domain: string): Promise<{
   location: string;
 }> {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-pro" });
     
     const domainData = domainDatabase[domain as keyof typeof domainDatabase];
     const domainContext = domainData ? 
