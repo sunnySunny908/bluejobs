@@ -1,191 +1,278 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// ==================== COMPLETE DOMAIN DATABASE ====================
+// ==================== EXPERIENCE-BASED JOB DETECTION ====================
+function extractJobRolesFromExperience(text: string): {
+  primaryRole: string;
+  allRoles: string[];
+  industry: string;
+  confidence: number;
+} {
+  const lowerText = text.toLowerCase();
+  
+  // ==================== STEP 1: FIND EXPERIENCE SECTION ====================
+  const lines = text.split('\n');
+  let experienceSection = '';
+  let inExperience = false;
+  
+  for (const line of lines) {
+    const lowerLine = line.toLowerCase();
+    if (lowerLine.includes('experience') || lowerLine.includes('professional experience') || lowerLine.includes('work experience')) {
+      inExperience = true;
+      continue;
+    }
+    if (inExperience) {
+      if (lowerLine.includes('education') || lowerLine.includes('skills') || lowerLine.includes('summary')) {
+        break;
+      }
+      experienceSection += line + ' ';
+    }
+  }
+  
+  // If no experience section found, use entire text
+  if (!experienceSection.trim()) {
+    experienceSection = text;
+  }
+  
+  console.log("📋 Experience Section Length:", experienceSection.length);
+  
+  // ==================== STEP 2: DETECT JOB ROLES FROM EXPERIENCE ====================
+  const jobRolePatterns = [
+    // Finance/Payroll
+    { keywords: ['payroll', 'tax', 'finance', 'accounting', 'audit', 'compliance', 'benefits', 'retirement', 'pension'], role: 'Payroll/Tax Specialist', industry: 'Finance/Payroll' },
+    
+    // Technology
+    { keywords: ['developer', 'engineer', 'software', 'programming', 'react', 'python', 'java', 'javascript', 'aws', 'docker', 'kubernetes', 'sql', 'devops', 'cloud', 'api', 'microservices', 'full stack', 'frontend', 'backend', 'machine learning', 'data science', 'blockchain'], role: 'Software Developer', industry: 'Technology' },
+    
+    // Sales
+    { keywords: ['sales', 'business development', 'lead generation', 'account management', 'negotiation', 'crm', 'cold calling', 'closing', 'quota', 'revenue', 'b2b', 'enterprise sales'], role: 'Sales Manager', industry: 'Sales' },
+    
+    // HR
+    { keywords: ['hr', 'human resources', 'recruitment', 'talent acquisition', 'onboarding', 'employee relations', 'performance management', 'training', 'compensation', 'benefits'], role: 'HR Manager', industry: 'HR' },
+    
+    // Design
+    { keywords: ['ui', 'ux', 'graphic design', 'figma', 'photoshop', 'illustrator', 'indesign', 'visual design', 'prototyping', 'wireframing', 'branding', 'typography', 'motion graphics'], role: 'UI/UX Designer', industry: 'Design' },
+    
+    // Marketing
+    { keywords: ['marketing', 'digital marketing', 'seo', 'content', 'social media', 'brand', 'campaign', 'analytics', 'google analytics', 'advertising', 'email marketing', 'ppc', 'growth', 'market research', 'positioning'], role: 'Marketing Manager', industry: 'Marketing' },
+    
+    // Operations
+    { keywords: ['operations', 'supply chain', 'logistics', 'inventory', 'warehouse', 'distribution', 'procurement', 'vendor management', 'quality', 'process improvement', 'lean', 'six sigma'], role: 'Operations Manager', industry: 'Operations' },
+    
+    // Call Centre
+    { keywords: ['call centre', 'call center', 'customer support', 'customer service', 'bpo', 'voice process', 'non-voice process', 'inbound', 'outbound', 'customer care', 'telecalling', 'query resolution'], role: 'Customer Service Manager', industry: 'Call Centre' },
+    
+    // Healthcare
+    { keywords: ['healthcare', 'medical', 'clinical', 'nursing', 'patient', 'doctor', 'hospital', 'pharmacy', 'medical records', 'health informatics', 'biotech', 'pharmaceutical', 'clinical trials'], role: 'Healthcare Professional', industry: 'Healthcare' },
+    
+    // Legal
+    { keywords: ['legal', 'law', 'attorney', 'advocate', 'compliance', 'regulatory', 'contract', 'litigation', 'corporate law', 'legal advisory', 'legal research', 'drafting'], role: 'Legal Professional', industry: 'Legal' },
+    
+    // Education
+    { keywords: ['education', 'teaching', 'training', 'curriculum', 'pedagogy', 'student', 'learning', 'faculty', 'academic', 'professor', 'teacher', 'coaching', 'mentoring', 'e-learning'], role: 'Teacher/Trainer', industry: 'Education' },
+    
+    // Engineering
+    { keywords: ['engineering', 'mechanical', 'electrical', 'civil', 'chemical', 'structural', 'aerospace', 'automotive', 'industrial', 'manufacturing', 'cad', 'solidworks', 'autocad', 'matlab'], role: 'Engineer', industry: 'Engineering' },
+    
+    // Consulting
+    { keywords: ['consulting', 'strategy', 'management consulting', 'business analysis', 'solution design', 'client engagement', 'advisory', 'transformation', 'process optimization', 'change management', 'due diligence'], role: 'Consultant', industry: 'Consulting' },
+    
+    // Data Analytics
+    { keywords: ['data', 'analytics', 'data analysis', 'data science', 'data engineering', 'business intelligence', 'power bi', 'tableau', 'sql', 'statistics', 'predictive modeling', 'data visualization', 'etl', 'data warehousing'], role: 'Data Analyst', industry: 'Data Analytics' },
+    
+    // Project Management
+    { keywords: ['project management', 'project planning', 'project coordination', 'scrum master', 'product owner', 'project manager', 'program manager', 'pmp', 'agile', 'waterfall', 'kanban', 'jira'], role: 'Project Manager', industry: 'Project Management' },
+    
+    // Manufacturing
+    { keywords: ['manufacturing', 'production', 'factory', 'plant', 'assembly', 'lean manufacturing', 'six sigma', 'kaizen', '5s', 'quality control', 'quality assurance', 'production planning'], role: 'Manufacturing Engineer', industry: 'Manufacturing' },
+    
+    // Hospitality
+    { keywords: ['hospitality', 'hotel', 'resort', 'restaurant', 'catering', 'food and beverage', 'guest services', 'front office', 'housekeeping', 'event management', 'banquets', 'tourism', 'travel'], role: 'Hospitality Manager', industry: 'Hospitality' },
+    
+    // Retail
+    { keywords: ['retail', 'fmcg', 'consumer goods', 'supermarket', 'department store', 'merchandising', 'visual merchandising', 'store operations', 'category management', 'buying', 'sourcing'], role: 'Retail Manager', industry: 'Retail' },
+    
+    // Media
+    { keywords: ['media', 'entertainment', 'broadcast', 'television', 'radio', 'podcast', 'film', 'movie', 'cinema', 'production', 'editing', 'video editing', 'audio editing', 'sound design', 'animation', 'motion graphics', 'vfx', 'journalism', 'news', 'reporting'], role: 'Media Professional', industry: 'Media' },
+    
+    // Construction
+    { keywords: ['construction', 'building', 'architecture', 'civil engineering', 'structural', 'infrastructure', 'site management', 'construction management', 'quantity surveying', 'cost estimation', 'budgeting', 'contracts'], role: 'Construction Manager', industry: 'Construction' },
+    
+    // Logistics
+    { keywords: ['logistics', 'transportation', 'freight', 'shipping', 'cargo', 'container', 'supply chain', 'warehouse', 'distribution', 'fleet management', 'route planning', 'transport management', 'delivery', 'last mile'], role: 'Logistics Manager', industry: 'Logistics' }
+  ];
+  
+  // ==================== STEP 3: SCORE EACH ROLE ====================
+  let bestRole = { role: 'Payroll/Tax Specialist', industry: 'Finance/Payroll', score: 0 };
+  
+  for (const pattern of jobRolePatterns) {
+    let score = 0;
+    for (const keyword of pattern.keywords) {
+      if (experienceSection.toLowerCase().includes(keyword)) {
+        score += 2;
+      }
+      if (text.toLowerCase().includes(keyword)) {
+        score += 1;
+      }
+    }
+    // Check if job title appears in experience
+    const roleWords = pattern.role.toLowerCase().split(' ');
+    for (const word of roleWords) {
+      if (experienceSection.toLowerCase().includes(word)) {
+        score += 3;
+      }
+    }
+    if (score > bestRole.score) {
+      bestRole = { role: pattern.role, industry: pattern.industry, score: score };
+    }
+  }
+  
+  console.log("🏆 Best Role:", bestRole.role, "Industry:", bestRole.industry, "Score:", bestRole.score);
+  
+  // ==================== STEP 4: EXTRACT ALL MENTIONED ROLES ====================
+  const allRoles: string[] = [];
+  for (const pattern of jobRolePatterns) {
+    const roleWords = pattern.role.toLowerCase().split(' ');
+    for (const word of roleWords) {
+      if (experienceSection.toLowerCase().includes(word) || text.toLowerCase().includes(word)) {
+        if (!allRoles.includes(pattern.role)) {
+          allRoles.push(pattern.role);
+        }
+      }
+    }
+  }
+  
+  return {
+    primaryRole: bestRole.role,
+    allRoles: allRoles.slice(0, 5),
+    industry: bestRole.industry,
+    confidence: Math.min(bestRole.score / 20, 1)
+  };
+}
+
+// ==================== DOMAIN DATABASE ====================
 const domainDatabase = {
   'finance/payroll': {
-    keywords: [
-      'payroll', 'tax', 'w-2', 'w2', '1099', '1099-r', '1042-s', '941', '940',
-      'fica', 'flsa', 'suta', 'sui', 'futa', 'state tax', 'federal tax', 'local tax',
-      'finance', 'accounting', 'audit', 'reconciliation', 'compliance',
-      'benefits', 'retirement', 'pension', 'defined benefit', 'defined contribution',
-      'payroll processing', 'payroll administration', 'tax compliance',
-      'financial reporting', 'general ledger', 'accounts payable', 'accounts receivable',
-      'bookkeeping', 'financial analysis', 'budgeting', 'forecasting',
-      'us payroll', 'international payroll', 'payroll specialist', 'tax analyst'
-    ],
-    jobTitles: ['Payroll Specialist', 'Tax Analyst', 'Benefits Analyst', 'Finance Manager', 'Accountant', 'Auditor', 'Compliance Officer', 'Financial Analyst'],
+    jobTitles: ['Payroll Specialist', 'Tax Analyst', 'Benefits Analyst', 'Finance Manager', 'Accountant', 'Auditor', 'Compliance Officer'],
     skills: ['Payroll Processing', 'Tax Compliance', 'Financial Reporting', 'W-2/1099', 'FICA/SUTA/FUTA', 'Audit', 'Reconciliation'],
     searchTerms: ['payroll', 'tax', 'finance', 'accounting', 'compliance']
   },
   'technology': {
-    keywords: [
-      'react', 'angular', 'vue', 'next.js', 'node.js', 'python', 'java',
-      'javascript', 'typescript', 'aws', 'docker', 'kubernetes', 'sql',
-      'mongodb', 'devops', 'cloud', 'api', 'microservices', 'full stack',
-      'frontend', 'backend', 'machine learning', 'data science', 'blockchain',
-      'software developer', 'software engineer', 'programming', 'coding'
-    ],
-    jobTitles: ['Software Developer', 'Full Stack Developer', 'DevOps Engineer', 'Cloud Engineer', 'Data Engineer', 'Machine Learning Engineer'],
+    jobTitles: ['Software Developer', 'Full Stack Developer', 'DevOps Engineer', 'Cloud Engineer', 'Data Engineer'],
     skills: ['React', 'Python', 'JavaScript', 'AWS', 'Docker', 'SQL', 'DevOps', 'Cloud Computing'],
     searchTerms: ['developer', 'engineer', 'software', 'programming']
   },
   'sales': {
-    keywords: ['sales', 'business development', 'lead generation', 'account management', 'negotiation', 'crm', 'cold calling', 'closing', 'quota', 'revenue', 'b2b', 'enterprise sales'],
-    jobTitles: ['Sales Manager', 'Business Development Manager', 'Account Executive', 'Sales Representative'],
-    skills: ['Sales', 'Business Development', 'Lead Generation', 'Negotiation', 'CRM', 'Account Management'],
+    jobTitles: ['Sales Manager', 'Business Development Manager', 'Account Executive'],
+    skills: ['Sales', 'Business Development', 'Lead Generation', 'Negotiation', 'CRM'],
     searchTerms: ['sales', 'business development', 'account manager']
   },
   'hr': {
-    keywords: ['hr', 'human resources', 'recruitment', 'talent acquisition', 'onboarding', 'employee relations', 'performance management', 'training', 'compensation', 'benefits'],
-    jobTitles: ['HR Manager', 'Recruiter', 'Talent Acquisition Specialist', 'HR Business Partner'],
-    skills: ['HR Management', 'Recruitment', 'Talent Acquisition', 'Employee Relations', 'Performance Management'],
+    jobTitles: ['HR Manager', 'Recruiter', 'Talent Acquisition Specialist'],
+    skills: ['HR Management', 'Recruitment', 'Talent Acquisition', 'Employee Relations'],
     searchTerms: ['hr', 'human resources', 'recruitment']
   },
   'design': {
-    keywords: ['ui', 'ux', 'figma', 'photoshop', 'illustrator', 'indesign', 'graphic design', 'visual design', 'prototyping', 'wireframing', 'branding', 'typography'],
-    jobTitles: ['UI/UX Designer', 'Graphic Designer', 'Product Designer', 'Visual Designer'],
-    skills: ['UI/UX Design', 'Figma', 'Adobe Creative Suite', 'Photoshop', 'Illustrator', 'Visual Design'],
+    jobTitles: ['UI/UX Designer', 'Graphic Designer', 'Product Designer'],
+    skills: ['UI/UX Design', 'Figma', 'Adobe Creative Suite', 'Visual Design'],
     searchTerms: ['design', 'ui/ux', 'graphic', 'creative']
   },
   'marketing': {
-    keywords: ['marketing', 'digital marketing', 'seo', 'content', 'social media', 'brand', 'campaign', 'analytics', 'google analytics', 'advertising', 'email marketing', 'ppc'],
-    jobTitles: ['Marketing Manager', 'Digital Marketing Specialist', 'Content Strategist', 'SEO Specialist', 'Social Media Manager'],
-    skills: ['Marketing', 'Digital Marketing', 'SEO', 'Content Strategy', 'Social Media', 'Brand Management'],
+    jobTitles: ['Marketing Manager', 'Digital Marketing Specialist', 'Content Strategist'],
+    skills: ['Marketing', 'Digital Marketing', 'SEO', 'Content Strategy', 'Social Media'],
     searchTerms: ['marketing', 'digital marketing', 'seo', 'content']
   },
   'operations': {
-    keywords: ['operations', 'supply chain', 'logistics', 'inventory', 'warehouse', 'distribution', 'procurement', 'vendor management', 'quality', 'process improvement', 'lean', 'six sigma'],
-    jobTitles: ['Operations Manager', 'Supply Chain Manager', 'Logistics Manager', 'Procurement Specialist'],
-    skills: ['Operations', 'Supply Chain', 'Logistics', 'Inventory Management', 'Procurement', 'Vendor Management'],
+    jobTitles: ['Operations Manager', 'Supply Chain Manager', 'Logistics Manager'],
+    skills: ['Operations', 'Supply Chain', 'Logistics', 'Inventory Management', 'Procurement'],
     searchTerms: ['operations', 'supply chain', 'logistics', 'procurement']
   },
   'call centre': {
-    keywords: ['call centre', 'call center', 'customer support', 'customer service', 'bpo', 'voice process', 'inbound', 'outbound', 'customer care', 'telecalling', 'query resolution'],
-    jobTitles: ['Customer Service Representative', 'Customer Support Executive', 'Call Centre Agent', 'Team Leader'],
+    jobTitles: ['Customer Service Manager', 'Call Centre Manager', 'Team Leader'],
     skills: ['Customer Service', 'Call Centre Operations', 'Inbound/Outbound', 'Query Resolution'],
     searchTerms: ['customer service', 'call centre', 'bpo', 'support']
   },
   'healthcare': {
-    keywords: ['healthcare', 'medical', 'clinical', 'nursing', 'patient', 'doctor', 'hospital', 'pharmacy', 'medical records', 'health informatics', 'biotech', 'pharmaceutical'],
-    jobTitles: ['Healthcare Administrator', 'Nurse', 'Medical Officer', 'Healthcare Consultant'],
-    skills: ['Healthcare', 'Patient Care', 'Clinical Operations', 'Medical Records', 'Healthcare Administration'],
+    jobTitles: ['Healthcare Administrator', 'Clinical Manager', 'Nurse', 'Medical Officer'],
+    skills: ['Healthcare', 'Patient Care', 'Clinical Operations', 'Medical Records'],
     searchTerms: ['healthcare', 'medical', 'clinical', 'nursing']
   },
   'legal': {
-    keywords: ['legal', 'law', 'attorney', 'compliance', 'regulatory', 'contract', 'litigation', 'corporate law', 'legal advisory', 'legal research'],
-    jobTitles: ['Legal Counsel', 'Compliance Officer', 'Corporate Lawyer', 'Legal Analyst'],
-    skills: ['Legal', 'Compliance', 'Corporate Law', 'Contract Management', 'Legal Research'],
+    jobTitles: ['Legal Counsel', 'Compliance Officer', 'Corporate Lawyer'],
+    skills: ['Legal', 'Compliance', 'Corporate Law', 'Contract Management'],
     searchTerms: ['legal', 'law', 'compliance', 'regulatory']
   },
   'education': {
-    keywords: ['education', 'teaching', 'training', 'curriculum', 'pedagogy', 'student', 'learning', 'faculty', 'academic', 'professor', 'teacher', 'coaching', 'mentoring', 'e-learning'],
-    jobTitles: ['Teacher', 'Professor', 'Trainer', 'Instructional Designer', 'Curriculum Developer'],
-    skills: ['Teaching', 'Curriculum Development', 'Training', 'Instructional Design', 'Learning Management'],
+    jobTitles: ['Teacher', 'Professor', 'Trainer', 'Instructional Designer'],
+    skills: ['Teaching', 'Curriculum Development', 'Training', 'Instructional Design'],
     searchTerms: ['education', 'teaching', 'training', 'academic']
   },
   'engineering': {
-    keywords: ['engineering', 'mechanical', 'electrical', 'civil', 'chemical', 'structural', 'aerospace', 'automotive', 'industrial', 'manufacturing', 'cad', 'solidworks', 'autocad', 'matlab'],
-    jobTitles: ['Mechanical Engineer', 'Electrical Engineer', 'Civil Engineer', 'Chemical Engineer', 'Structural Engineer'],
-    skills: ['Engineering', 'Mechanical Design', 'CAD/CAM', 'Project Management', 'Manufacturing', 'Quality Assurance'],
+    jobTitles: ['Mechanical Engineer', 'Electrical Engineer', 'Civil Engineer'],
+    skills: ['Engineering', 'Mechanical Design', 'CAD/CAM', 'Project Management'],
     searchTerms: ['engineering', 'mechanical', 'electrical', 'civil']
+  },
+  'consulting': {
+    jobTitles: ['Management Consultant', 'Strategy Consultant', 'Business Analyst'],
+    skills: ['Consulting', 'Strategy', 'Business Analysis', 'Change Management'],
+    searchTerms: ['consulting', 'strategy', 'business analysis', 'advisory']
+  },
+  'data analytics': {
+    jobTitles: ['Data Analyst', 'Data Scientist', 'Business Intelligence Analyst'],
+    skills: ['Data Analysis', 'Data Science', 'Business Intelligence', 'Power BI', 'Tableau'],
+    searchTerms: ['data', 'analytics', 'data science', 'business intelligence']
+  },
+  'project management': {
+    jobTitles: ['Project Manager', 'Scrum Master', 'Product Owner', 'Program Manager'],
+    skills: ['Project Management', 'Agile', 'Scrum', 'Jira', 'Stakeholder Management'],
+    searchTerms: ['project management', 'scrum', 'agile', 'pmp']
+  },
+  'manufacturing': {
+    jobTitles: ['Manufacturing Engineer', 'Production Manager', 'Plant Manager', 'Quality Engineer'],
+    skills: ['Manufacturing', 'Lean Manufacturing', 'Six Sigma', 'Quality Control', 'Production Planning'],
+    searchTerms: ['manufacturing', 'production', 'plant', 'quality', 'lean']
+  },
+  'hospitality': {
+    jobTitles: ['Hotel Manager', 'Restaurant Manager', 'Event Manager', 'Front Office Manager'],
+    skills: ['Hospitality Management', 'Guest Services', 'Food and Beverage', 'Event Management'],
+    searchTerms: ['hospitality', 'hotel', 'restaurant', 'tourism', 'travel']
+  },
+  'retail': {
+    jobTitles: ['Retail Manager', 'Store Manager', 'Category Manager', 'Merchandiser'],
+    skills: ['Retail Operations', 'Store Management', 'Merchandising', 'Category Management'],
+    searchTerms: ['retail', 'fmcg', 'store', 'merchandising', 'inventory']
+  },
+  'media': {
+    jobTitles: ['Producer', 'Director', 'Editor', 'Journalist', 'Content Creator'],
+    skills: ['Video Production', 'Editing', 'Journalism', 'Content Creation', 'Directing'],
+    searchTerms: ['media', 'entertainment', 'video', 'production', 'journalism']
+  },
+  'construction': {
+    jobTitles: ['Construction Manager', 'Site Manager', 'Civil Engineer', 'Architect'],
+    skills: ['Construction Management', 'Project Management', 'Site Management', 'Cost Estimation'],
+    searchTerms: ['construction', 'civil', 'architecture', 'real estate', 'building']
+  },
+  'logistics': {
+    jobTitles: ['Logistics Manager', 'Transportation Manager', 'Warehouse Manager', 'Supply Chain Manager'],
+    skills: ['Logistics', 'Supply Chain', 'Transportation', 'Warehouse Operations', 'Inventory Management'],
+    searchTerms: ['logistics', 'transportation', 'freight', 'warehouse', 'supply chain']
   }
 };
 
-// ==================== DETECT DOMAIN WITH SCORING ====================
-function detectDomain(text: string): { domain: string; confidence: number; keywords: string[] } {
-  const lowerText = text.toLowerCase();
-  let bestDomain = 'finance/payroll';
-  let bestScore = 0;
-  let matchedKeywords: string[] = [];
-
-  for (const [domain, data] of Object.entries(domainDatabase)) {
-    let score = 0;
-    const matched: string[] = [];
-    
-    // Check keywords
-    for (const keyword of data.keywords) {
-      if (lowerText.includes(keyword)) {
-        score += 3;
-        matched.push(keyword);
-      }
-    }
-    
-    // Check job titles
-    for (const title of data.jobTitles) {
-      if (lowerText.includes(title.toLowerCase())) {
-        score += 5;
-        matched.push(title);
-      }
-    }
-    
-    // Check skills
-    for (const skill of data.skills) {
-      if (lowerText.includes(skill.toLowerCase())) {
-        score += 2;
-        matched.push(skill);
-      }
-    }
-    
-    if (score > bestScore) {
-      bestScore = score;
-      bestDomain = domain;
-      matchedKeywords = matched;
-    }
-  }
-
-  return {
-    domain: bestDomain,
-    confidence: Math.min(bestScore / 10, 1),
-    keywords: matchedKeywords.slice(0, 10)
-  };
-}
-
-// ==================== EXTRACT SKILLS FROM DOMAIN ====================
-function extractSkillsFromDomain(domain: string, text: string): {
+// ==================== EXTRACT SKILLS ====================
+function extractSkillsFromDomain(domain: string): {
   skills: string[];
   jobRoles: string[];
-  experience: string;
-  location: string;
-  industry: string;
 } {
   const domainData = domainDatabase[domain as keyof typeof domainDatabase];
-  const lowerText = text.toLowerCase();
-  const extractedSkills: string[] = [];
-  const extractedJobRoles: string[] = [];
-
-  // Add domain skills
   if (domainData) {
-    for (const skill of domainData.skills) {
-      extractedSkills.push(skill);
-    }
-    for (const title of domainData.jobTitles) {
-      extractedJobRoles.push(title);
-    }
+    return {
+      skills: domainData.skills || [],
+      jobRoles: domainData.jobTitles || []
+    };
   }
-
-  // Extract location
-  let location = "India";
-  const locationKeywords = ['mumbai', 'delhi', 'bangalore', 'hyderabad', 'chennai', 'kolkata', 'pune', 'noida', 'gurgaon', 'ahmedabad'];
-  for (const loc of locationKeywords) {
-    if (lowerText.includes(loc)) {
-      location = loc.charAt(0).toUpperCase() + loc.slice(1);
-      break;
-    }
-  }
-
-  // Extract experience
-  let experience = "3-5 years";
-  const expMatch = text.match(/(\d+)\s*(?:years?|yrs?)/i);
-  if (expMatch) {
-    experience = expMatch[0];
-  }
-
   return {
-    skills: extractedSkills,
-    jobRoles: extractedJobRoles.slice(0, 3),
-    experience: experience,
-    location: location,
-    industry: domain.charAt(0).toUpperCase() + domain.slice(1).replace('/', ' / ')
+    skills: ['Payroll', 'Tax', 'Finance', 'Accounting', 'Compliance'],
+    jobRoles: ['Payroll Specialist', 'Tax Analyst']
   };
 }
 
@@ -223,21 +310,54 @@ export async function POST(req: NextRequest) {
     
     console.log("📄 File size:", cvText.length, "bytes");
     
-    // Detect domain
-    const domainDetection = detectDomain(cvText);
-    console.log("🎯 Detected Domain:", domainDetection.domain, "Confidence:", domainDetection.confidence);
-    console.log("📌 Keywords:", domainDetection.keywords.slice(0, 5));
+    // ==================== EXTRACT JOB ROLES FROM EXPERIENCE ====================
+    const roleDetection = extractJobRolesFromExperience(cvText);
     
-    // Extract skills
-    const extractionResult = extractSkillsFromDomain(domainDetection.domain, cvText);
+    console.log("🏆 Primary Role:", roleDetection.primaryRole);
+    console.log("📋 All Roles:", roleDetection.allRoles);
+    console.log("🏢 Industry:", roleDetection.industry);
+    console.log("📊 Confidence:", roleDetection.confidence);
+    
+    // ==================== DETERMINE DOMAIN ====================
+    let domain = roleDetection.industry.toLowerCase().replace('/', '').replace(' ', '').replace('&', '');
+    
+    // Map industry to domain key
+    const industryMap: { [key: string]: string } = {
+      'finance/payroll': 'finance/payroll',
+      'technology': 'technology',
+      'sales': 'sales',
+      'hr': 'hr',
+      'design': 'design',
+      'marketing': 'marketing',
+      'operations': 'operations',
+      'call centre': 'call centre',
+      'healthcare': 'healthcare',
+      'legal': 'legal',
+      'education': 'education',
+      'engineering': 'engineering',
+      'consulting': 'consulting',
+      'data analytics': 'data analytics',
+      'project management': 'project management',
+      'manufacturing': 'manufacturing',
+      'hospitality': 'hospitality',
+      'retail': 'retail',
+      'media': 'media',
+      'construction': 'construction',
+      'logistics': 'logistics'
+    };
+    
+    const domainKey = industryMap[domain] || 'finance/payroll';
+    
+    console.log("🎯 Domain Key:", domainKey);
+    
+    // ==================== EXTRACT SKILLS ====================
+    const extractionResult = extractSkillsFromDomain(domainKey);
     
     const extractedSkills = extractionResult.skills;
     const detectedJobRoles = extractionResult.jobRoles;
-    const detectedIndustry = extractionResult.industry;
     
     console.log("🎯 Skills:", extractedSkills.slice(0, 5));
     console.log("💼 Job Roles:", detectedJobRoles);
-    console.log("🏢 Industry:", detectedIndustry);
 
     const APP_ID = process.env.ADZUNA_APP_ID;
     const API_KEY = process.env.ADZUNA_API_KEY;
@@ -246,42 +366,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'API keys missing' }, { status: 500 });
     }
     
-    // Build search queries
+    // ==================== BUILD SEARCH QUERIES ====================
     let searchTerms: string[] = [];
     
-    const industryTerms: { [key: string]: string[] } = {
-      'finance/payroll': ['payroll', 'tax', 'finance', 'accounting', 'compliance'],
-      'technology': ['developer', 'engineer', 'software', 'programming'],
-      'sales': ['sales', 'business development', 'account manager'],
-      'hr': ['hr', 'human resources', 'recruitment'],
-      'design': ['design', 'ui/ux', 'graphic design'],
-      'marketing': ['marketing', 'digital marketing', 'seo'],
-      'operations': ['operations', 'supply chain', 'logistics'],
-      'call centre': ['customer service', 'call centre', 'bpo'],
-      'healthcare': ['healthcare', 'medical', 'clinical'],
-      'legal': ['legal', 'law', 'compliance'],
-      'education': ['education', 'teaching', 'training'],
-      'engineering': ['engineering', 'mechanical', 'electrical']
-    };
-
-    const industrySearchTerms = industryTerms[domainDetection.domain] || ['payroll', 'tax', 'finance'];
-    searchTerms.push(...industrySearchTerms);
-    
-    if (detectedJobRoles.length > 0) {
-      searchTerms.push(...detectedJobRoles.slice(0, 2));
+    // Use the primary role as search term
+    if (roleDetection.primaryRole) {
+      searchTerms.push(roleDetection.primaryRole);
     }
     
-    if (extractedSkills.length > 0) {
-      searchTerms.push(...extractedSkills.slice(0, 2));
+    // Add all roles
+    searchTerms.push(...roleDetection.allRoles);
+    
+    // Add domain-specific search terms
+    const domainData = domainDatabase[domainKey as keyof typeof domainDatabase];
+    if (domainData) {
+      searchTerms.push(...domainData.searchTerms);
     }
     
+    // Remove duplicates
     searchTerms = [...new Set(searchTerms.filter(term => term && term.trim().length > 0))];
     
     if (searchTerms.length === 0) {
-      searchTerms = ['jobs'];
+      searchTerms = ['payroll tax finance'];
     }
     
-    console.log("🔍 Search Terms:", searchTerms);
+    console.log("🔍 Search Terms:", searchTerms.slice(0, 10));
     
     let allJobs: any[] = [];
     
@@ -306,7 +415,8 @@ export async function POST(req: NextRequest) {
                 matchingSkills: extractedSkills.filter(skill => 
                   (job.title + ' ' + (job.description || '')).toLowerCase().includes(skill.toLowerCase())
                 ).slice(0, 5),
-                industry: detectedIndustry
+                industry: roleDetection.industry,
+                primaryRole: roleDetection.primaryRole
               }));
               
               allJobs = [...allJobs, ...pageJobs];
@@ -330,18 +440,21 @@ export async function POST(req: NextRequest) {
     const finalJobs = uniqueJobs.slice(0, 50);
     
     console.log("✅ Jobs found:", finalJobs.length);
-    console.log("📊 Industry used:", detectedIndustry);
+    console.log("📊 Industry used:", roleDetection.industry);
+    console.log("🏆 Primary Role:", roleDetection.primaryRole);
     
     return NextResponse.json({
       success: true,
       extractedSkills: extractedSkills,
       jobRoles: detectedJobRoles,
-      detectedDomain: domainDetection.domain,
-      detectedIndustry: detectedIndustry,
-      domainConfidence: domainDetection.confidence,
+      detectedDomain: domainKey,
+      detectedIndustry: roleDetection.industry,
+      primaryRole: roleDetection.primaryRole,
+      allRoles: roleDetection.allRoles,
+      domainConfidence: roleDetection.confidence,
       matchedJobs: finalJobs,
       totalMatches: finalJobs.length,
-      source: 'Direct Keyword Detection (No AI)'
+      source: 'Experience-Based Job Detection'
     });
     
   } catch (error) {
