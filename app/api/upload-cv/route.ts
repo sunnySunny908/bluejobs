@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// ==================== NO GEMINI - DIRECT KEYWORD DETECTION ONLY ====================
-
 // ==================== COMPLETE DOMAIN DATABASE ====================
 const domainDatabase = {
   'finance/payroll': {
@@ -12,7 +10,8 @@ const domainDatabase = {
       'benefits', 'retirement', 'pension', 'defined benefit', 'defined contribution',
       'payroll processing', 'payroll administration', 'tax compliance',
       'financial reporting', 'general ledger', 'accounts payable', 'accounts receivable',
-      'bookkeeping', 'financial analysis', 'budgeting', 'forecasting'
+      'bookkeeping', 'financial analysis', 'budgeting', 'forecasting',
+      'us payroll', 'international payroll', 'payroll specialist', 'tax analyst'
     ],
     jobTitles: ['Payroll Specialist', 'Tax Analyst', 'Benefits Analyst', 'Finance Manager', 'Accountant', 'Auditor', 'Compliance Officer', 'Financial Analyst'],
     skills: ['Payroll Processing', 'Tax Compliance', 'Financial Reporting', 'W-2/1099', 'FICA/SUTA/FUTA', 'Audit', 'Reconciliation'],
@@ -23,7 +22,8 @@ const domainDatabase = {
       'react', 'angular', 'vue', 'next.js', 'node.js', 'python', 'java',
       'javascript', 'typescript', 'aws', 'docker', 'kubernetes', 'sql',
       'mongodb', 'devops', 'cloud', 'api', 'microservices', 'full stack',
-      'frontend', 'backend', 'machine learning', 'data science', 'blockchain'
+      'frontend', 'backend', 'machine learning', 'data science', 'blockchain',
+      'software developer', 'software engineer', 'programming', 'coding'
     ],
     jobTitles: ['Software Developer', 'Full Stack Developer', 'DevOps Engineer', 'Cloud Engineer', 'Data Engineer', 'Machine Learning Engineer'],
     skills: ['React', 'Python', 'JavaScript', 'AWS', 'Docker', 'SQL', 'DevOps', 'Cloud Computing'],
@@ -133,24 +133,9 @@ function detectDomain(text: string): { domain: string; confidence: number; keywo
     }
   }
 
-  // If score is very low, check for any keyword
-  if (bestScore < 3) {
-    for (const [domain, data] of Object.entries(domainDatabase)) {
-      for (const keyword of data.keywords) {
-        if (lowerText.includes(keyword)) {
-          return {
-            domain: domain,
-            confidence: 0.3,
-            keywords: [keyword]
-          };
-        }
-      }
-    }
-  }
-
   return {
     domain: bestDomain,
-    confidence: Math.min(bestScore / 15, 1),
+    confidence: Math.min(bestScore / 10, 1),
     keywords: matchedKeywords.slice(0, 10)
   };
 }
@@ -168,14 +153,11 @@ function extractSkillsFromDomain(domain: string, text: string): {
   const extractedSkills: string[] = [];
   const extractedJobRoles: string[] = [];
 
-  // Extract skills from domain data
+  // Add domain skills
   if (domainData) {
-    // Add domain skills
     for (const skill of domainData.skills) {
       extractedSkills.push(skill);
     }
-    
-    // Add job roles from domain
     for (const title of domainData.jobTitles) {
       extractedJobRoles.push(title);
     }
@@ -241,12 +223,12 @@ export async function POST(req: NextRequest) {
     
     console.log("📄 File size:", cvText.length, "bytes");
     
-    // ==================== DETECT DOMAIN ====================
+    // Detect domain
     const domainDetection = detectDomain(cvText);
     console.log("🎯 Detected Domain:", domainDetection.domain, "Confidence:", domainDetection.confidence);
     console.log("📌 Keywords:", domainDetection.keywords.slice(0, 5));
     
-    // ==================== EXTRACT SKILLS ====================
+    // Extract skills
     const extractionResult = extractSkillsFromDomain(domainDetection.domain, cvText);
     
     const extractedSkills = extractionResult.skills;
@@ -264,7 +246,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'API keys missing' }, { status: 500 });
     }
     
-    // ==================== BUILD SEARCH QUERIES ====================
+    // Build search queries
     let searchTerms: string[] = [];
     
     const industryTerms: { [key: string]: string[] } = {
@@ -301,7 +283,6 @@ export async function POST(req: NextRequest) {
     
     console.log("🔍 Search Terms:", searchTerms);
     
-    // ==================== FETCH JOBS ====================
     let allJobs: any[] = [];
     
     for (const term of searchTerms.slice(0, 5)) {
@@ -338,7 +319,6 @@ export async function POST(req: NextRequest) {
       }
     }
     
-    // ==================== DEDUPLICATE AND SORT ====================
     const seenUrls = new Set();
     const uniqueJobs = allJobs.filter(job => {
       if (seenUrls.has(job.url)) return false;
