@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
-// AI-Powered Skill Extraction (No Hardcoding!)
 async function extractSkillsWithAI(text: string): Promise<{
   skills: string[];
   jobRoles: string[];
@@ -19,15 +17,21 @@ async function extractSkillsWithAI(text: string): Promise<{
     const prompt = `
       You are a professional resume parser. Extract structured information from this resume.
 
-      IMPORTANT: Extract ALL skills mentioned - technical, soft skills, domain-specific, tools, software, certifications.
-      
-      Return ONLY valid JSON in this exact format (no explanation, no markdown):
+      CRITICAL RULES:
+      1. Extract ONLY skills explicitly mentioned in the resume
+      2. Extract EXACT job titles from professional experience section
+      3. Industry MUST match the primary work domain (e.g., Payroll → "Finance/Payroll")
+      4. DO NOT add extra skills not present in the resume
+      5. If resume mentions payroll/tax/finance → industry = "Finance/Payroll"
+      6. If resume mentions developer/engineer/code → industry = "Technology/Software"
+
+      Return ONLY valid JSON:
       {
-        "skills": ["skill1", "skill2", "skill3", "..."],
-        "jobRoles": ["role1", "role2"],
+        "skills": ["skill1", "skill2"],
+        "jobRoles": ["exact job title 1", "exact job title 2"],
         "experience": "X years",
         "location": "city, country",
-        "industry": "finance/tech/healthcare/etc"
+        "industry": "Industry name"
       }
 
       Resume text:
@@ -38,7 +42,6 @@ async function extractSkillsWithAI(text: string): Promise<{
     const response = await result.response;
     const text_response = response.text();
     
-    // Clean and parse JSON
     const cleanJson = text_response.replace(/```json/g, '').replace(/```/g, '').trim();
     const parsed = JSON.parse(cleanJson);
     
@@ -51,12 +54,10 @@ async function extractSkillsWithAI(text: string): Promise<{
     };
   } catch (error) {
     console.error("❌ AI Extraction Error:", error);
-    // Fallback: basic keyword extraction
     return fallbackExtraction(text);
   }
 }
 
-// Fallback function (if AI fails)
 function fallbackExtraction(text: string): {
   skills: string[];
   jobRoles: string[];
@@ -64,56 +65,58 @@ function fallbackExtraction(text: string): {
   location: string;
   industry: string;
 } {
+  const lowerText = text.toLowerCase();
   const skills: string[] = [];
   const jobRoles: string[] = [];
-  
-  // Common skill keywords (just for fallback)
-  const commonSkills = [
-    'react', 'node.js', 'python', 'java', 'javascript', 'typescript',
-    'payroll', 'tax', 'compliance', 'finance', 'accounting',
-    'marketing', 'seo', 'content', 'social media',
-    'hr', 'recruitment', 'onboarding', 'benefits',
-    'project management', 'agile', 'scrum', 'leadership'
-  ];
-  
-  const lowerText = text.toLowerCase();
-  
-  for (const skill of commonSkills) {
-    if (lowerText.includes(skill)) {
-      skills.push(skill);
-    }
+
+  // Payroll/Finance keywords
+  const payrollKeywords = ['payroll', 'tax', 'w-2', '1099', 'fica', 'suta', 'suit', 'flsa', 'compliance', 'finance', 'accounting'];
+  const techKeywords = ['react', 'node.js', 'python', 'java', 'javascript', 'typescript', 'developer', 'engineer'];
+  const hrKeywords = ['hr', 'recruitment', 'onboarding', 'benefits', 'employee'];
+  const marketingKeywords = ['marketing', 'seo', 'content', 'social media', 'digital'];
+
+  for (const keyword of payrollKeywords) {
+    if (lowerText.includes(keyword)) skills.push(keyword);
   }
-  
+  for (const keyword of techKeywords) {
+    if (lowerText.includes(keyword)) skills.push(keyword);
+  }
+  for (const keyword of hrKeywords) {
+    if (lowerText.includes(keyword)) skills.push(keyword);
+  }
+  for (const keyword of marketingKeywords) {
+    if (lowerText.includes(keyword)) skills.push(keyword);
+  }
+
   // Detect job roles
-  if (lowerText.includes('payroll') || lowerText.includes('tax')) {
+  if (lowerText.includes('payroll') || lowerText.includes('tax') || lowerText.includes('finance')) {
     jobRoles.push('Payroll/Tax Specialist');
+    skills.push('Payroll', 'Tax', 'Compliance');
   }
   if (lowerText.includes('developer') || lowerText.includes('engineer')) {
     jobRoles.push('Software Developer');
   }
-  if (lowerText.includes('marketing') || lowerText.includes('seo')) {
-    jobRoles.push('Marketing Specialist');
-  }
   if (lowerText.includes('hr') || lowerText.includes('recruitment')) {
     jobRoles.push('HR Professional');
   }
-  
+  if (lowerText.includes('marketing') || lowerText.includes('seo')) {
+    jobRoles.push('Marketing Specialist');
+  }
+
   return {
     skills: [...new Set(skills)],
-    jobRoles: jobRoles,
+    jobRoles: jobRoles.length > 0 ? jobRoles : ['Professional'],
     experience: "3-5 years",
     location: "India",
-    industry: "general"
+    industry: lowerText.includes('payroll') ? 'Finance/Payroll' : 
+              lowerText.includes('developer') ? 'Technology' : 'general'
   };
 }
 
-// Calculate match percentage with AI-extracted skills
 function calculateMatchPercentage(jobTitle: string, jobDescription: string, cvSkills: string[]): number {
-  const lowerTitle = jobTitle.toLowerCase();
-  const lowerDesc = jobDescription.toLowerCase();
-  const combinedText = lowerTitle + " " + lowerDesc;
-  
+  const combinedText = (jobTitle + " " + jobDescription).toLowerCase();
   let matchCount = 0;
+  
   for (const skill of cvSkills) {
     if (combinedText.includes(skill.toLowerCase())) {
       matchCount++;
@@ -121,12 +124,9 @@ function calculateMatchPercentage(jobTitle: string, jobDescription: string, cvSk
   }
   
   let percentage = (matchCount / Math.max(cvSkills.length, 1)) * 100;
-  // Boost if title matches job role
-  if (cvSkills.some(skill => lowerTitle.includes(skill.toLowerCase()))) {
-    percentage += 10;
-  }
+  percentage = Math.min(Math.round(percentage), 98);
   
-  return Math.min(Math.round(percentage), 98);
+  return Math.max(percentage, 30);
 }
 
 export async function POST(req: NextRequest) {
@@ -140,74 +140,78 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
     }
 
-    // Read file content
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     let cvText = buffer.toString('utf-8');
     
     console.log("📄 File size:", cvText.length, "bytes");
     
-    // 🚀 AI-Powered Skill Extraction
     const extractionResult = await extractSkillsWithAI(cvText);
     
     const extractedSkills = extractionResult.skills;
     const detectedJobRoles = extractionResult.jobRoles;
     const detectedIndustry = extractionResult.industry;
     
-    console.log("🎯 AI Extracted Skills:", extractedSkills);
-    console.log("💼 Detected Job Roles:", detectedJobRoles);
+    console.log("🎯 Extracted Skills:", extractedSkills);
+    console.log("💼 Job Roles:", detectedJobRoles);
     console.log("🏢 Industry:", detectedIndustry);
-
-    // If no skills extracted, use fallback
-    if (extractedSkills.length === 0) {
-      console.warn("⚠️ No skills extracted, using fallback");
-      const fallback = fallbackExtraction(cvText);
-      extractedSkills.push(...fallback.skills);
-    }
 
     const APP_ID = process.env.ADZUNA_APP_ID;
     const API_KEY = process.env.ADZUNA_API_KEY;
     
     if (!APP_ID || !API_KEY) {
-      return NextResponse.json({ 
-        error: 'Adzuna API keys not configured' 
-      }, { status: 500 });
+      return NextResponse.json({ error: 'API keys missing' }, { status: 500 });
     }
     
-    // Build search query from extracted skills + job roles
-    const searchTerms = [
-      ...extractedSkills.slice(0, 5),
-      ...detectedJobRoles.slice(0, 2)
-    ].filter(Boolean);
+    // Build search queries: Job Roles FIRST, then Skills
+    let searchTerms: string[] = [];
     
-    const mainSearchTerm = searchTerms.join(" ").trim() || "jobs";
-    console.log("🔍 Search Term:", mainSearchTerm);
+    // Add job roles as primary search terms
+    if (detectedJobRoles.length > 0) {
+      searchTerms.push(...detectedJobRoles.map(role => {
+        // Simplify role for better search
+        const simplified = role.toLowerCase()
+          .replace(/specialist|analyst|associate|manager|executive/g, '')
+          .trim();
+        return simplified || role;
+      }));
+    }
+    
+    // Add skills as secondary search terms
+    if (extractedSkills.length > 0) {
+      searchTerms.push(...extractedSkills.slice(0, 5));
+    }
+    
+    // Fallback
+    if (searchTerms.length === 0) {
+      searchTerms = ['payroll tax finance'];
+    }
+    
+    // Remove duplicates
+    searchTerms = [...new Set(searchTerms)];
+    console.log("🔍 Search Terms:", searchTerms);
     
     let allJobs: any[] = [];
     
-    // Multi-skill search
-    for (const term of searchTerms.slice(0, 4)) {
+    for (const term of searchTerms.slice(0, 5)) {
       for (let page = 1; page <= 3; page++) {
         const url = `https://api.adzuna.com/v1/api/jobs/in/search/${page}?app_id=${APP_ID}&app_key=${API_KEY}&results_per_page=15&what=${encodeURIComponent(term)}&max_days_old=7&content-type=application/json`;
         
         try {
-          const response = await fetch(url, {
-            headers: { 'User-Agent': 'bluejobs/1.0' }
-          });
-          
+          const response = await fetch(url);
           if (response.ok) {
             const data = await response.json();
-            
-            if (data.results && data.results.length > 0) {
+            if (data.results) {
               const pageJobs = data.results.map((job: any) => {
-                const jobTitle = job.title || "";
-                const jobDesc = job.description || "";
-                const matchPercentage = calculateMatchPercentage(jobTitle, jobDesc, extractedSkills);
+                const matchPercentage = calculateMatchPercentage(
+                  job.title || '',
+                  job.description || '',
+                  extractedSkills
+                );
                 
-                // Extract matching skills from job
                 const matchingSkills = extractedSkills.filter(skill => {
-                  const lower = (jobTitle + " " + jobDesc).toLowerCase();
-                  return lower.includes(skill.toLowerCase());
+                  const combined = (job.title + ' ' + (job.description || '')).toLowerCase();
+                  return combined.includes(skill.toLowerCase());
                 });
                 
                 return {
@@ -215,14 +219,11 @@ export async function POST(req: NextRequest) {
                   title: job.title || "Unknown",
                   company: job.company?.display_name || "Unknown",
                   location: job.location?.display_name || "India",
-                  salaryMin: job.salary_min || null,
-                  salaryMax: job.salary_max || null,
                   description: job.description?.substring(0, 500) || "",
                   url: job.redirect_url || "#",
                   postedDate: new Date(job.created || Date.now()),
                   matchPercentage: matchPercentage,
-                  matchingSkills: matchingSkills.slice(0, 5),
-                  detectedIndustry: detectedIndustry
+                  matchingSkills: matchingSkills.slice(0, 5)
                 };
               });
               
@@ -230,14 +231,13 @@ export async function POST(req: NextRequest) {
             }
           }
         } catch (err) {
-          console.error(`Error fetching ${term} page ${page}:`, err);
+          console.error(`Error:`, err);
         }
-        
-        await new Promise(resolve => setTimeout(resolve, 150));
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
     
-    // Remove duplicates by URL
+    // Remove duplicates and sort
     const seenUrls = new Set();
     const uniqueJobs = allJobs.filter(job => {
       if (seenUrls.has(job.url)) return false;
@@ -245,25 +245,10 @@ export async function POST(req: NextRequest) {
       return true;
     });
     
-    // Sort by match percentage
     uniqueJobs.sort((a, b) => b.matchPercentage - a.matchPercentage);
-    
     const finalJobs = uniqueJobs.slice(0, 50);
     
-    console.log("📊 Total unique jobs:", finalJobs.length);
-    
-    if (finalJobs.length === 0) {
-      return NextResponse.json({ 
-        success: false,
-        error: 'No jobs found. Try uploading a different CV.',
-        extractedSkills: extractedSkills,
-        detectedJobRoles: detectedJobRoles,
-        matchedJobs: [],
-        totalMatches: 0
-      });
-    }
-    
-    // Save to database (async)
+    // Save to database
     for (const job of finalJobs) {
       try {
         await prisma.job.upsert({
@@ -295,11 +280,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       extractedSkills: extractedSkills,
-      detectedJobRoles: detectedJobRoles,
-      detectedIndustry: detectedIndustry,
+      jobRoles: detectedJobRoles,
       matchedJobs: finalJobs,
-      totalMatches: finalJobs.length,
-      source: 'AI-Powered Skill Extraction'
+      totalMatches: finalJobs.length
     });
     
   } catch (error) {
