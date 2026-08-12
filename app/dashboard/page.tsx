@@ -329,7 +329,6 @@ export default function Dashboard() {
 
   return (
     <div style={styles.container}>
-      {/* 3D Background with Floating Logos */}
       <div style={styles.bgContainer}>
         <div style={styles.bgGradient}></div>
         <div style={styles.floatingLogos}>
@@ -380,16 +379,16 @@ export default function Dashboard() {
         <div style={styles.heroContent}>
           <div style={styles.badge}>
             <span style={styles.badgeDot}></span>
-            <span>AI-Powered · 7-Day Fresh · 70km</span>
+            <span>7-Day Fresh Jobs</span>
           </div>
           
           <h1 style={styles.heroTitle}>
-            Your Dream Job is<br />
-            <span style={styles.heroHighlight}>Just One Upload Away</span>
+            Upload Your CV &<br />
+            <span style={styles.heroHighlight}>Get Matched in Seconds</span>
           </h1>
           
           <p style={styles.heroSubtext}>
-            ⚡ AI instantly matches your skills · <span style={{ color: "#f59e0b" }}>Fresh jobs daily</span> · 📍 Within 70km
+            ⚡ AI scans your resume · <span style={{ color: "#f59e0b" }}>7-day fresh</span> jobs · 📍 70km radius
           </p>
 
           {locationPermission && userLocation && userLocation !== "India" ? (
