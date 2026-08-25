@@ -2,6 +2,7 @@
 import { useSession } from "next-auth/react";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import AdUnit from "../components/AdUnit";
 
 declare global {
   interface Window {
@@ -329,6 +330,7 @@ export default function Dashboard() {
 
   return (
     <div style={styles.container}>
+      {/* 3D Background */}
       <div style={styles.bgContainer}>
         <div style={styles.bgGradient}></div>
         <div style={styles.floatingLogos}>
@@ -375,228 +377,259 @@ export default function Dashboard() {
         </div>
       </nav>
 
-      <div style={styles.heroSection}>
-        <div style={styles.heroContent}>
-          <div style={styles.badge}>
-            <span style={styles.badgeDot}></span>
-            <span>7-Day Fresh Jobs</span>
-          </div>
-          
-          <h1 style={styles.heroTitle}>
-            Upload Your CV &<br />
-            <span style={styles.heroHighlight}>Get Matched in Seconds</span>
-          </h1>
-          
-          <p style={styles.heroSubtext}>
-            ⚡ AI scans your resume · <span style={{ color: "#f59e0b" }}>7-day fresh</span> jobs · 📍 70km radius
-          </p>
+      <div style={styles.mainLayout}>
+        <div style={styles.contentArea}>
+          <div style={styles.heroSection}>
+            <div style={styles.heroContent}>
+              <div style={styles.badge}>
+                <span style={styles.badgeDot}></span>
+                <span>7-Day Fresh Jobs</span>
+              </div>
+              
+              <h1 style={styles.heroTitle}>
+                Upload Your CV &<br />
+                <span style={styles.heroHighlight}>Get Matched in Seconds</span>
+              </h1>
+              
+              <p style={styles.heroSubtext}>
+                ⚡ AI scans your resume · <span style={{ color: "#f59e0b" }}>7-day fresh</span> jobs · 📍 70km radius
+              </p>
 
-          {locationPermission && userLocation && userLocation !== "India" ? (
-            <div style={styles.locationBadge}>📍 {userLocation} · 70km radius</div>
-          ) : (
-            <button 
-              onClick={() => {
-                if ("geolocation" in navigator) {
-                  navigator.geolocation.getCurrentPosition(
-                    () => {},
-                    () => {},
-                    { enableHighAccuracy: true }
-                  );
-                }
-              }} 
-              style={styles.locationRequest}
-            >
-              📍 Allow location for precise 70km radius
-            </button>
+              {locationPermission && userLocation && userLocation !== "India" ? (
+                <div style={styles.locationBadge}>📍 {userLocation} · 70km radius</div>
+              ) : (
+                <button 
+                  onClick={() => {
+                    if ("geolocation" in navigator) {
+                      navigator.geolocation.getCurrentPosition(
+                        () => {},
+                        () => {},
+                        { enableHighAccuracy: true }
+                      );
+                    }
+                  }} 
+                  style={styles.locationRequest}
+                >
+                  📍 Allow location for precise 70km radius
+                </button>
+              )}
+
+              <div 
+                style={{
+                  ...styles.uploadHero,
+                  ...(isDragging ? styles.uploadHeroDragging : {})
+                }}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                <div style={styles.uploadIcon}>📄</div>
+                <h2 style={styles.uploadTitle}>
+                  {file ? file.name : "Drop your CV here"}
+                </h2>
+                <p style={styles.uploadSub}>
+                  {file ? `${(file.size / 1024).toFixed(0)} KB · Ready to upload` : "PDF, DOCX, TXT · Max 5MB"}
+                </p>
+                
+                <div style={styles.uploadActions}>
+                  <label htmlFor="cv-upload-hero" style={styles.uploadBrowse}>
+                    Browse Files
+                  </label>
+                  <input
+                    type="file"
+                    id="cv-upload-hero"
+                    accept=".pdf,.docx,.txt"
+                    onChange={(e) => setFile(e.target.files?.[0] || null)}
+                    style={{ display: "none" }}
+                  />
+                  <button
+                    onClick={handleUpload}
+                    disabled={uploading || !file}
+                    style={{
+                      ...styles.uploadBtn,
+                      ...((uploading || !file) ? styles.uploadBtnDisabled : {})
+                    }}
+                  >
+                    {uploading ? (
+                      <>
+                        <span style={styles.spinnerSmall}></span>
+                        Analyzing...
+                      </>
+                    ) : (
+                      "Find Jobs Now"
+                    )}
+                  </button>
+                </div>
+
+                <div style={styles.features}>
+                  <div style={styles.featureItem}>
+                    <span style={styles.featureIcon}>⚡</span>
+                    <span style={styles.featureLabel}>AI Matching</span>
+                  </div>
+                  <div style={styles.featureDivider}></div>
+                  <div style={styles.featureItem}>
+                    <span style={styles.featureIcon}>📅</span>
+                    <span style={styles.featureLabel}>Last 7 Days</span>
+                  </div>
+                  <div style={styles.featureDivider}></div>
+                  <div style={styles.featureItem}>
+                    <span style={styles.featureIcon}>📍</span>
+                    <span style={styles.featureLabel}>70km Radius</span>
+                  </div>
+                </div>
+              </div>
+
+              <div style={styles.trustedCard}>
+                <p style={styles.trustedText}>Trusted by 500+ Fortune 500 companies</p>
+                <div style={styles.scrollContainer}>
+                  <button onClick={scrollLeft} style={styles.scrollBtn}>‹</button>
+                  <div ref={scrollRef} style={styles.companyGrid}>
+                    {trustedCompanies.slice(0, 20).map((company, idx) => (
+                      <div key={idx} style={styles.companyLogo}>
+                        {!logoErrors.has(company.name) ? (
+                          <img 
+                            src={getLogoUrl(company.domain)} 
+                            alt={company.name}
+                            style={styles.companyLogoImg}
+                            onError={() => handleLogoError(company.name)}
+                          />
+                        ) : (
+                          <span>{company.name.charAt(0)}</span>
+                        )}
+                        <div style={styles.companyTooltip}>{company.name}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={scrollRight} style={styles.scrollBtn}>›</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {message && (
+            <div style={styles.messageToast}>
+              {message}
+            </div>
           )}
 
-          <div 
-            style={{
-              ...styles.uploadHero,
-              ...(isDragging ? styles.uploadHeroDragging : {})
-            }}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-          >
-            <div style={styles.uploadIcon}>📄</div>
-            <h2 style={styles.uploadTitle}>
-              {file ? file.name : "Drop your CV here"}
-            </h2>
-            <p style={styles.uploadSub}>
-              {file ? `${(file.size / 1024).toFixed(0)} KB · Ready to upload` : "PDF, DOCX, TXT · Max 5MB"}
-            </p>
-            
-            <div style={styles.uploadActions}>
-              <label htmlFor="cv-upload-hero" style={styles.uploadBrowse}>
-                Browse Files
-              </label>
-              <input
-                type="file"
-                id="cv-upload-hero"
-                accept=".pdf,.docx,.txt"
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
-                style={{ display: "none" }}
-              />
-              <button
-                onClick={handleUpload}
-                disabled={uploading || !file}
-                style={{
-                  ...styles.uploadBtn,
-                  ...((uploading || !file) ? styles.uploadBtnDisabled : {})
-                }}
-              >
-                {uploading ? (
-                  <>
-                    <span style={styles.spinnerSmall}></span>
-                    Analyzing...
-                  </>
-                ) : (
-                  "Find Jobs Now"
-                )}
+          {!canApply && (
+            <div style={styles.limitWarning}>
+              <span>Free applies used! </span>
+              <button onClick={() => setShowPaymentPopup(true)} style={styles.upgradeLink}>
+                Upgrade ₹99 →
               </button>
             </div>
+          )}
 
-            <div style={styles.features}>
-              <div style={styles.featureItem}>
-                <span style={styles.featureIcon}>⚡</span>
-                <span style={styles.featureLabel}>AI Matching</span>
-              </div>
-              <div style={styles.featureDivider}></div>
-              <div style={styles.featureItem}>
-                <span style={styles.featureIcon}>📅</span>
-                <span style={styles.featureLabel}>Last 7 Days</span>
-              </div>
-              <div style={styles.featureDivider}></div>
-              <div style={styles.featureItem}>
-                <span style={styles.featureIcon}>📍</span>
-                <span style={styles.featureLabel}>70km Radius</span>
+          {showPaymentPopup && (
+            <div style={styles.paymentOverlay}>
+              <div style={styles.paymentCard}>
+                <h3>Unlock More</h3>
+                <p><strong>100 extra applies</strong> for <strong>₹99</strong></p>
+                <button onClick={handlePayment} style={styles.payBtn}>Pay ₹99</button>
+                <button onClick={() => setShowPaymentPopup(false)} style={styles.cancelBtn}>Later</button>
               </div>
             </div>
-          </div>
+          )}
 
-          <div style={styles.trustedCard}>
-            <p style={styles.trustedText}>Trusted by 500+ Fortune 500 companies</p>
-            <div style={styles.scrollContainer}>
-              <button onClick={scrollLeft} style={styles.scrollBtn}>‹</button>
-              <div ref={scrollRef} style={styles.companyGrid}>
-                {trustedCompanies.slice(0, 20).map((company, idx) => (
-                  <div key={idx} style={styles.companyLogo}>
-                    {!logoErrors.has(company.name) ? (
-                      <img 
-                        src={getLogoUrl(company.domain)} 
-                        alt={company.name}
-                        style={styles.companyLogoImg}
-                        onError={() => handleLogoError(company.name)}
-                      />
-                    ) : (
-                      <span>{company.name.charAt(0)}</span>
+          {skills.length > 0 && (
+            <div style={styles.skillsCard}>
+              <h3 style={styles.sectionTitle}>Skills Detected</h3>
+              <div style={styles.skillsContainer}>
+                {skills.map((skill, idx) => (
+                  <span key={idx} style={styles.skillTag}>{skill}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {jobs.length > 0 && (
+            <div style={styles.jobsSection}>
+              <h3 style={styles.sectionTitle}>Matching Jobs ({jobs.length})</h3>
+              <div style={styles.jobsGrid}>
+                {jobs.map((job, idx) => (
+                  <div key={idx} style={styles.jobCard}>
+                    <div style={styles.jobHeader}>
+                      <div>
+                        <h4 style={styles.jobTitle}>{job.title || "Unknown"}</h4>
+                        <p style={styles.jobCompany}>{job.company || "Unknown"}</p>
+                      </div>
+                      <div style={styles.matchBadge}>
+                        {job.matchPercentage || Math.floor(Math.random() * 30) + 60}%
+                      </div>
+                    </div>
+                    {job.location && job.location !== "India" && (
+                      <p style={styles.jobLocation}>📍 {job.location}</p>
                     )}
-                    <div style={styles.companyTooltip}>{company.name}</div>
+                    {job.distance && job.distance !== null && (
+                      <p style={styles.jobDistance}>📏 {typeof job.distance === 'number' ? job.distance.toFixed(1) : job.distance} km</p>
+                    )}
+                    {job.matchingSkills && job.matchingSkills.length > 0 && (
+                      <div style={styles.matchingSkills}>
+                        {job.matchingSkills.slice(0, 4).map((skill: string, i: number) => (
+                          <span key={i} style={styles.smallSkillTag}>{skill}</span>
+                        ))}
+                      </div>
+                    )}
+                    <button
+                      onClick={() => handleApply(job)}
+                      disabled={appliedJobs.has(job.id)}
+                      style={{
+                        ...styles.applyBtn,
+                        ...(appliedJobs.has(job.id) ? styles.applyBtnDisabled : {})
+                      }}
+                    >
+                      {appliedJobs.has(job.id) ? "Applied" : "Apply Now"}
+                    </button>
                   </div>
                 ))}
               </div>
-              <button onClick={scrollRight} style={styles.scrollBtn}>›</button>
             </div>
+          )}
+
+          {jobs.length === 0 && !uploading && (
+            <div style={styles.emptyState}>
+              <div style={styles.emptyIcon}>📄</div>
+              <h3 style={styles.emptyTitle}>Upload your CV to get started</h3>
+              <p style={styles.emptyDesc}>
+                AI scans your resume and finds <strong>7-day fresh</strong> tech jobs near you.
+              </p>
+              <div style={styles.emptyFeatures}>
+                <span>AI Matching</span>
+                <span>7 Days Fresh</span>
+                <span>70km Radius</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div style={styles.sidebar}>
+          <div style={styles.adContainer}>
+            <p style={styles.adLabel}>— Sponsored —</p>
+            <AdUnit 
+              slot="1234567890" 
+              format="vertical" 
+              style={{ minHeight: "250px", width: "100%" }}
+            />
+          </div>
+
+          <div style={styles.adContainer}>
+            <p style={styles.adLabel}>— Sponsored —</p>
+            <AdUnit 
+              slot="0987654321" 
+              format="vertical" 
+              style={{ minHeight: "250px", width: "100%" }}
+            />
+          </div>
+
+          <div style={styles.sponsoredCard}>
+            <div style={styles.sponsoredBadge}>⭐ Sponsored</div>
+            <h4 style={styles.sponsoredTitle}>Senior Developer</h4>
+            <p style={styles.sponsoredCompany}>Google</p>
+            <p style={styles.sponsoredCta}>Apply Now →</p>
           </div>
         </div>
       </div>
-
-      {message && (
-        <div style={styles.messageToast}>
-          {message}
-        </div>
-      )}
-
-      {!canApply && (
-        <div style={styles.limitWarning}>
-          <span>Free applies used! </span>
-          <button onClick={() => setShowPaymentPopup(true)} style={styles.upgradeLink}>
-            Upgrade ₹99 →
-          </button>
-        </div>
-      )}
-
-      {showPaymentPopup && (
-        <div style={styles.paymentOverlay}>
-          <div style={styles.paymentCard}>
-            <h3>Unlock More</h3>
-            <p><strong>100 extra applies</strong> for <strong>₹99</strong></p>
-            <button onClick={handlePayment} style={styles.payBtn}>Pay ₹99</button>
-            <button onClick={() => setShowPaymentPopup(false)} style={styles.cancelBtn}>Later</button>
-          </div>
-        </div>
-      )}
-
-      {skills.length > 0 && (
-        <div style={styles.skillsCard}>
-          <h3 style={styles.sectionTitle}>Skills Detected</h3>
-          <div style={styles.skillsContainer}>
-            {skills.map((skill, idx) => (
-              <span key={idx} style={styles.skillTag}>{skill}</span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {jobs.length > 0 && (
-        <div style={styles.jobsSection}>
-          <h3 style={styles.sectionTitle}>Matching Jobs ({jobs.length})</h3>
-          <div style={styles.jobsGrid}>
-            {jobs.map((job, idx) => (
-              <div key={idx} style={styles.jobCard}>
-                <div style={styles.jobHeader}>
-                  <div>
-                    <h4 style={styles.jobTitle}>{job.title || "Unknown"}</h4>
-                    <p style={styles.jobCompany}>{job.company || "Unknown"}</p>
-                  </div>
-                  <div style={styles.matchBadge}>
-                    {job.matchPercentage || Math.floor(Math.random() * 30) + 60}%
-                  </div>
-                </div>
-                {job.location && job.location !== "India" && (
-                  <p style={styles.jobLocation}>📍 {job.location}</p>
-                )}
-                {job.distance && job.distance !== null && (
-                  <p style={styles.jobDistance}>📏 {typeof job.distance === 'number' ? job.distance.toFixed(1) : job.distance} km</p>
-                )}
-                {job.matchingSkills && job.matchingSkills.length > 0 && (
-                  <div style={styles.matchingSkills}>
-                    {job.matchingSkills.slice(0, 4).map((skill: string, i: number) => (
-                      <span key={i} style={styles.smallSkillTag}>{skill}</span>
-                    ))}
-                  </div>
-                )}
-                <button
-                  onClick={() => handleApply(job)}
-                  disabled={appliedJobs.has(job.id)}
-                  style={{
-                    ...styles.applyBtn,
-                    ...(appliedJobs.has(job.id) ? styles.applyBtnDisabled : {})
-                  }}
-                >
-                  {appliedJobs.has(job.id) ? "Applied" : "Apply Now"}
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {jobs.length === 0 && !uploading && (
-        <div style={styles.emptyState}>
-          <div style={styles.emptyIcon}>📄</div>
-          <h3 style={styles.emptyTitle}>Upload your CV to get started</h3>
-          <p style={styles.emptyDesc}>
-            AI scans your resume and finds <strong>7-day fresh</strong> tech jobs near you.
-          </p>
-          <div style={styles.emptyFeatures}>
-            <span>AI Matching</span>
-            <span>7 Days Fresh</span>
-            <span>70km Radius</span>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -689,14 +722,14 @@ const styles: { [key: string]: React.CSSProperties } = {
     marginRight: 8,
   },
   navbar: {
-  background: "rgba(15, 23, 42, 0.7)",
-  backdropFilter: "blur(20px)",
-  padding: "14px 24px",
-  borderBottom: "1px solid rgba(255,255,255,0.04)",
-  position: "sticky" as const,
-  top: 0,
-  zIndex: 100,
-},
+    background: "rgba(15, 23, 42, 0.5)",
+    backdropFilter: "blur(30px)",
+    padding: "14px 24px",
+    borderBottom: "1px solid rgba(255,255,255,0.04)",
+    position: "sticky" as const,
+    top: 0,
+    zIndex: 100,
+  },
   navContent: {
     maxWidth: 1200,
     margin: "0 auto",
@@ -986,6 +1019,73 @@ const styles: { [key: string]: React.CSSProperties } = {
     transition: "opacity 0.3s",
     pointerEvents: "none" as const,
     zIndex: 10,
+  },
+  mainLayout: {
+    display: "flex",
+    gap: 24,
+    maxWidth: 1400,
+    margin: "0 auto",
+    padding: "0 20px",
+  },
+  contentArea: {
+    flex: 1,
+    minWidth: 0,
+  },
+  sidebar: {
+    width: 300,
+    minWidth: 300,
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: 20,
+    position: "sticky" as const,
+    top: 80,
+    height: "fit-content",
+  },
+  adContainer: {
+    background: "rgba(255,255,255,0.03)",
+    borderRadius: 16,
+    padding: 12,
+    border: "1px solid rgba(255,255,255,0.04)",
+    minHeight: 260,
+  },
+  adLabel: {
+    fontSize: 10,
+    color: "rgba(255,255,255,0.25)",
+    textTransform: "uppercase" as const,
+    letterSpacing: 1,
+    marginBottom: 8,
+    textAlign: "center" as const,
+  },
+  sponsoredCard: {
+    background: "linear-gradient(135deg, rgba(245,158,11,0.08), rgba(245,158,11,0.02))",
+    borderRadius: 16,
+    padding: 16,
+    border: "1px solid rgba(245,158,11,0.1)",
+  },
+  sponsoredBadge: {
+    fontSize: 10,
+    fontWeight: 700,
+    color: "#f59e0b",
+    textTransform: "uppercase" as const,
+    marginBottom: 8,
+  },
+  sponsoredTitle: {
+    fontSize: 16,
+    fontWeight: 600,
+    color: "white",
+    marginBottom: 4,
+  },
+  sponsoredCompany: {
+    fontSize: 13,
+    color: "rgba(255,255,255,0.5)",
+    marginBottom: 12,
+  },
+  sponsoredCta: {
+    fontSize: 13,
+    color: "#f59e0b",
+    fontWeight: 500,
+    cursor: "pointer",
+    textDecoration: "underline",
   },
   messageToast: {
     position: "relative" as const,

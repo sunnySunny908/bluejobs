@@ -74,6 +74,11 @@ model Job {
   salaryMax     Int?
   skills        String    @db.Text
   createdAt     DateTime  @default(now())
+  isSponsored   Boolean   @default(false)
+  sponsorFee    Int?
+  sponsorExpiry DateTime?
+  sponsorCompany String?
+  sponsorLogo   String?
   applications  JobApplication[]
 }
 
