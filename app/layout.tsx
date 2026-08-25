@@ -22,19 +22,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {/* ✅ AdSense Script with correct placement */}
-        <Script
-          id="adsense-init"
-          strategy="beforeInteractive"
-          dangerouslySetInnerHTML={{
-            __html: `
-              (adsbygoogle = window.adsbygoogle || []).push({
-                google_ad_client: "ca-pub-9427071028467343",
-                enable_page_level_ads: true
-              });
-            `,
-          }}
-        />
+        {/* ✅ AdSense Meta Tag for Verification */}
+        <meta name="google-adsense-account" content="ca-pub-9427071028467343" />
+        
+        {/* ✅ AdSense Script */}
         <Script
           async
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9427071028467343"
