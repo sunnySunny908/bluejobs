@@ -1,3 +1,4 @@
+
 "use client";
 import { useSession } from "next-auth/react";
 import { useState, useEffect, useRef } from "react";
@@ -82,6 +83,7 @@ export default function Dashboard() {
   const [isDragging, setIsDragging] = useState(false);
   const [userLocation, setUserLocation] = useState<string>("");
   const [locationPermission, setLocationPermission] = useState<boolean>(false);
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -98,12 +100,14 @@ export default function Dashboard() {
     document.body.appendChild(script);
   }, []);
 
+  // GET USER LOCATION
   useEffect(() => {
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
         async (position) => {
           const { latitude, longitude } = position.coords;
           setLocationPermission(true);
+          setUserCoords({ lat: latitude, lng: longitude });
           
           try {
             const response = await fetch(
@@ -148,6 +152,7 @@ export default function Dashboard() {
           console.log("Location permission denied:", error.message);
           setLocationPermission(false);
           setUserLocation("India");
+          setMessage("📍 Please allow location access for 70km radius jobs");
         },
         {
           enableHighAccuracy: true,
@@ -255,7 +260,13 @@ export default function Dashboard() {
     setUploading(true);
     const formData = new FormData();
     formData.append("cv", file);
-    formData.append("location", userLocation || "India");
+    
+    const locationToSend = locationPermission && userLocation !== "India" ? userLocation : "";
+    formData.append("location", locationToSend);
+    if (userCoords) {
+      formData.append("latitude", userCoords.lat.toString());
+      formData.append("longitude", userCoords.lng.toString());
+    }
 
     try {
       const res = await fetch("/api/upload-cv", { 
@@ -274,10 +285,10 @@ export default function Dashboard() {
       }
 
       if (data.success) {
-        setSkills(data.matchedKeywords || []);
+        setSkills(data.keySkills || []);
         setJobs(data.matchedJobs || []);
         setAppliedJobs(new Set());
-        setMessage(data.message || `${data.matchedJobs?.length || 0} tech jobs found!`);
+        setMessage(data.message || `${data.matchedJobs?.length || 0} tech jobs found within 70km!`);
       } else {
         setMessage(data.error || "Upload failed");
       }
@@ -359,6 +370,7 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Navbar */}
       <nav style={styles.navbar}>
         <div style={styles.navContent}>
           <div style={styles.logo}>
@@ -395,24 +407,27 @@ export default function Dashboard() {
                 ⚡ AI scans your resume · <span style={{ color: "#f59e0b" }}>7-day fresh</span> jobs · 📍 70km radius
               </p>
 
-              {locationPermission && userLocation && userLocation !== "India" ? (
+              {!locationPermission ? (
+                <div style={styles.locationPrompt}>
+                  <span style={styles.locationPromptText}>📍 Allow location for <strong>70km radius</strong> jobs</span>
+                  <button 
+                    onClick={() => {
+                      if ("geolocation" in navigator) {
+                        navigator.geolocation.getCurrentPosition(
+                          () => {},
+                          () => {},
+                          { enableHighAccuracy: true }
+                        );
+                      }
+                    }} 
+                    style={styles.locationAllowBtn}
+                  >
+                    Allow Location
+                  </button>
+                </div>
+              ) : userLocation && userLocation !== "India" ? (
                 <div style={styles.locationBadge}>📍 {userLocation} · 70km radius</div>
-              ) : (
-                <button 
-                  onClick={() => {
-                    if ("geolocation" in navigator) {
-                      navigator.geolocation.getCurrentPosition(
-                        () => {},
-                        () => {},
-                        { enableHighAccuracy: true }
-                      );
-                    }
-                  }} 
-                  style={styles.locationRequest}
-                >
-                  📍 Allow location for precise 70km radius
-                </button>
-              )}
+              ) : null}
 
               <div 
                 style={{
@@ -506,29 +521,20 @@ export default function Dashboard() {
             </div>
           </div>
 
+          {/* In-Feed Ad */}
+          <div style={styles.inFeedAd}>
+            <p style={styles.adLabel}>— Sponsored —</p>
+            <AdUnit 
+              slot="1234567890" 
+              format="auto" 
+              type="infeed"
+              style={{ minHeight: "100px" }}
+            />
+          </div>
+
           {message && (
             <div style={styles.messageToast}>
               {message}
-            </div>
-          )}
-
-          {!canApply && (
-            <div style={styles.limitWarning}>
-              <span>Free applies used! </span>
-              <button onClick={() => setShowPaymentPopup(true)} style={styles.upgradeLink}>
-                Upgrade ₹99 →
-              </button>
-            </div>
-          )}
-
-          {showPaymentPopup && (
-            <div style={styles.paymentOverlay}>
-              <div style={styles.paymentCard}>
-                <h3>Unlock More</h3>
-                <p><strong>100 extra applies</strong> for <strong>₹99</strong></p>
-                <button onClick={handlePayment} style={styles.payBtn}>Pay ₹99</button>
-                <button onClick={() => setShowPaymentPopup(false)} style={styles.cancelBtn}>Later</button>
-              </div>
             </div>
           )}
 
@@ -603,13 +609,15 @@ export default function Dashboard() {
           )}
         </div>
 
+        {/* ✅ Sidebar Ads */}
         <div style={styles.sidebar}>
           <div style={styles.adContainer}>
             <p style={styles.adLabel}>— Sponsored —</p>
             <AdUnit 
               slot="1234567890" 
               format="vertical" 
-              style={{ minHeight: "250px", width: "100%" }}
+              type="sidebar"
+              style={{ minHeight: "200px" }}
             />
           </div>
 
@@ -618,7 +626,8 @@ export default function Dashboard() {
             <AdUnit 
               slot="0987654321" 
               format="vertical" 
-              style={{ minHeight: "250px", width: "100%" }}
+              type="sidebar"
+              style={{ minHeight: "200px" }}
             />
           </div>
 
@@ -722,13 +731,14 @@ const styles: { [key: string]: React.CSSProperties } = {
     marginRight: 8,
   },
   navbar: {
+    position: "relative" as const,
+    zIndex: 10,
     background: "rgba(15, 23, 42, 0.5)",
     backdropFilter: "blur(30px)",
-    padding: "14px 24px",
+    padding: "12px 16px",
     borderBottom: "1px solid rgba(255,255,255,0.04)",
     position: "sticky" as const,
     top: 0,
-    zIndex: 100,
   },
   navContent: {
     maxWidth: 1200,
@@ -738,19 +748,19 @@ const styles: { [key: string]: React.CSSProperties } = {
     alignItems: "center",
   },
   logo: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: "bold",
   },
   navLinks: {
     display: "flex",
-    gap: 24,
+    gap: 16,
     alignItems: "center",
   },
   navLink: {
     textDecoration: "none",
     color: "rgba(255,255,255,0.5)",
     fontWeight: 500,
-    fontSize: 14,
+    fontSize: 13,
     transition: "color 0.3s",
   },
   activeNavLink: {
@@ -764,13 +774,13 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: "rgba(239, 68, 68, 0.5)",
     cursor: "pointer",
     fontWeight: 500,
-    fontSize: 14,
+    fontSize: 13,
     transition: "color 0.3s",
   },
   heroSection: {
     position: "relative" as const,
     zIndex: 5,
-    padding: "50px 20px 60px",
+    padding: "30px 12px 40px",
   },
   heroContent: {
     maxWidth: 700,
@@ -784,11 +794,11 @@ const styles: { [key: string]: React.CSSProperties } = {
     background: "linear-gradient(135deg, rgba(37,99,235,0.12), rgba(245,158,11,0.06))",
     border: "1px solid rgba(255,255,255,0.05)",
     borderRadius: 50,
-    padding: "6px 18px",
+    padding: "4px 14px",
     color: "#f59e0b",
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: 600,
-    marginBottom: 20,
+    marginBottom: 16,
     textTransform: "uppercase" as const,
     letterSpacing: 0.8,
   },
@@ -800,11 +810,11 @@ const styles: { [key: string]: React.CSSProperties } = {
     animation: "pulse 1.5s infinite",
   },
   heroTitle: {
-    fontSize: 44,
+    fontSize: 32,
     color: "white",
     fontWeight: 700,
-    lineHeight: 1.15,
-    marginBottom: 16,
+    lineHeight: 1.2,
+    marginBottom: 12,
     letterSpacing: "-0.5px",
   },
   heroHighlight: {
@@ -814,43 +824,58 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: "transparent",
   },
   heroSubtext: {
-    fontSize: 16,
+    fontSize: 14,
     color: "rgba(255,255,255,0.5)",
-    marginBottom: 20,
+    marginBottom: 16,
     lineHeight: 1.6,
+  },
+  locationPrompt: {
+    background: "rgba(251, 191, 36, 0.08)",
+    border: "1px solid rgba(251, 191, 36, 0.15)",
+    borderRadius: 12,
+    padding: "10px 14px",
+    marginBottom: 16,
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    flexWrap: "wrap" as const,
+    gap: 8,
+  },
+  locationPromptText: {
+    color: "#fbbf24",
+    fontSize: 12,
+    fontWeight: 500,
+  },
+  locationAllowBtn: {
+    background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+    color: "white",
+    border: "none",
+    padding: "6px 14px",
+    borderRadius: 8,
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: "pointer",
+    transition: "all 0.2s",
   },
   locationBadge: {
     color: "#34d399",
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: 500,
     background: "rgba(52, 211, 153, 0.08)",
     border: "1px solid rgba(52, 211, 153, 0.12)",
-    padding: "6px 20px",
+    padding: "4px 16px",
     borderRadius: 20,
     display: "inline-block",
-    marginBottom: 20,
-  },
-  locationRequest: {
-    color: "#fbbf24",
-    fontSize: 13,
-    fontWeight: 500,
-    background: "rgba(251, 191, 36, 0.06)",
-    border: "1px solid rgba(251, 191, 36, 0.12)",
-    padding: "6px 20px",
-    borderRadius: 20,
-    cursor: "pointer",
-    display: "inline-block",
-    marginBottom: 20,
-    transition: "all 0.3s",
+    marginBottom: 16,
   },
   uploadHero: {
     background: "rgba(255,255,255,0.02)",
     backdropFilter: "blur(20px)",
     border: "1px solid rgba(255,255,255,0.05)",
-    borderRadius: 24,
-    padding: "32px 24px",
+    borderRadius: 20,
+    padding: "20px 16px",
     textAlign: "center" as const,
-    marginBottom: 24,
+    marginBottom: 20,
     transition: "all 0.4s",
   },
   uploadHeroDragging: {
@@ -859,33 +884,33 @@ const styles: { [key: string]: React.CSSProperties } = {
     boxShadow: "0 0 60px rgba(37,99,235,0.03)",
   },
   uploadIcon: {
-    fontSize: 44,
+    fontSize: 40,
     display: "block",
-    marginBottom: 12,
+    marginBottom: 8,
   },
   uploadTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 600,
     color: "white",
-    marginBottom: 6,
+    marginBottom: 4,
   },
   uploadSub: {
-    fontSize: 14,
+    fontSize: 12,
     color: "rgba(255,255,255,0.35)",
-    marginBottom: 20,
+    marginBottom: 16,
   },
   uploadActions: {
     display: "flex",
-    gap: 12,
+    gap: 10,
     justifyContent: "center",
     flexWrap: "wrap" as const,
   },
   uploadBrowse: {
     background: "rgba(255,255,255,0.04)",
     color: "rgba(255,255,255,0.7)",
-    padding: "12px 24px",
-    borderRadius: 12,
-    fontSize: 14,
+    padding: "10px 18px",
+    borderRadius: 10,
+    fontSize: 13,
     fontWeight: 500,
     cursor: "pointer",
     border: "1px solid rgba(255,255,255,0.04)",
@@ -895,12 +920,12 @@ const styles: { [key: string]: React.CSSProperties } = {
     background: "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)",
     color: "white",
     border: "none",
-    padding: "12px 32px",
-    borderRadius: 12,
-    fontSize: 15,
+    padding: "10px 24px",
+    borderRadius: 10,
+    fontSize: 14,
     fontWeight: 600,
     cursor: "pointer",
-    minWidth: 150,
+    minWidth: 130,
     transition: "all 0.3s",
     boxShadow: "0 0 40px rgba(37,99,235,0.15), 0 4px 30px rgba(37,99,235,0.1)",
   },
@@ -911,59 +936,59 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   features: {
     display: "flex",
-    gap: 16,
+    gap: 12,
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 20,
-    paddingTop: 20,
+    marginTop: 16,
+    paddingTop: 16,
     borderTop: "1px solid rgba(255,255,255,0.04)",
     flexWrap: "wrap" as const,
   },
   featureItem: {
     display: "flex",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
   },
   featureIcon: {
-    fontSize: 16,
+    fontSize: 14,
     opacity: 0.6,
   },
   featureLabel: {
-    fontSize: 13,
+    fontSize: 11,
     color: "rgba(255,255,255,0.6)",
     fontWeight: 500,
     letterSpacing: "0.3px",
   },
   featureDivider: {
     width: 1,
-    height: 18,
+    height: 16,
     background: "rgba(255,255,255,0.06)",
   },
   trustedCard: {
     background: "rgba(255,255,255,0.02)",
     backdropFilter: "blur(10px)",
-    borderRadius: 16,
-    padding: "16px 20px",
+    borderRadius: 14,
+    padding: "14px 16px",
     border: "1px solid rgba(255,255,255,0.03)",
   },
   trustedText: {
-    fontSize: 12,
+    fontSize: 11,
     color: "rgba(255,255,255,0.35)",
-    marginBottom: 12,
+    marginBottom: 10,
     textAlign: "center" as const,
   },
   scrollContainer: {
     display: "flex",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
   },
   scrollBtn: {
-    width: 30,
-    height: 30,
+    width: 28,
+    height: 28,
     borderRadius: "50%",
     background: "rgba(255,255,255,0.03)",
     border: "1px solid rgba(255,255,255,0.04)",
-    fontSize: 18,
+    fontSize: 16,
     cursor: "pointer",
     color: "rgba(255,255,255,0.3)",
     display: "flex",
@@ -974,7 +999,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   companyGrid: {
     display: "flex",
-    gap: 12,
+    gap: 10,
     overflowX: "auto" as const,
     overflowY: "hidden" as const,
     scrollBehavior: "smooth",
@@ -984,9 +1009,9 @@ const styles: { [key: string]: React.CSSProperties } = {
     scrollbarWidth: "thin" as const,
   },
   companyLogo: {
-    width: 42,
-    height: 42,
-    borderRadius: 10,
+    width: 38,
+    height: 38,
+    borderRadius: 8,
     background: "rgba(255,255,255,0.03)",
     display: "flex",
     alignItems: "center",
@@ -994,7 +1019,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     position: "relative" as const,
     cursor: "pointer",
     border: "1px solid rgba(255,255,255,0.03)",
-    padding: 6,
+    padding: 4,
     flexShrink: 0,
     transition: "all 0.3s",
   },
@@ -1005,14 +1030,14 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   companyTooltip: {
     position: "absolute" as const,
-    bottom: -28,
+    bottom: -24,
     left: "50%",
     transform: "translateX(-50%)",
     background: "rgba(30,41,59,0.95)",
     color: "white",
-    padding: "2px 10px",
+    padding: "2px 8px",
     borderRadius: 4,
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: 500,
     whiteSpace: "nowrap" as const,
     opacity: 0,
@@ -1022,66 +1047,71 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   mainLayout: {
     display: "flex",
-    gap: 24,
-    maxWidth: 1400,
+    flexDirection: "column" as const,
+    gap: 16,
+    maxWidth: 1200,
     margin: "0 auto",
-    padding: "0 20px",
+    padding: "0 12px",
   },
   contentArea: {
     flex: 1,
     minWidth: 0,
+    padding: "0 4px",
+  },
+  inFeedAd: {
+    margin: "12px 0",
+    padding: "0 4px",
   },
   sidebar: {
-    width: 300,
-    minWidth: 300,
     display: "flex",
     flexDirection: "column" as const,
-    gap: 20,
-    position: "sticky" as const,
-    top: 80,
-    height: "fit-content",
+    gap: 12,
+    padding: "0 4px",
   },
   adContainer: {
-    background: "rgba(255,255,255,0.03)",
-    borderRadius: 16,
-    padding: 12,
-    border: "1px solid rgba(255,255,255,0.04)",
-    minHeight: 260,
+    background: "rgba(255,255,255,0.02)",
+    borderRadius: 12,
+    padding: 8,
+    border: "1px solid rgba(255,255,255,0.03)",
+    minHeight: 180,
   },
   adLabel: {
-    fontSize: 10,
-    color: "rgba(255,255,255,0.25)",
+    fontSize: 9,
+    color: "rgba(255,255,255,0.15)",
     textTransform: "uppercase" as const,
-    letterSpacing: 1,
-    marginBottom: 8,
+    letterSpacing: 0.5,
+    marginBottom: 4,
     textAlign: "center" as const,
   },
   sponsoredCard: {
-    background: "linear-gradient(135deg, rgba(245,158,11,0.08), rgba(245,158,11,0.02))",
-    borderRadius: 16,
-    padding: 16,
-    border: "1px solid rgba(245,158,11,0.1)",
+    background: "linear-gradient(135deg, rgba(245,158,11,0.06), rgba(245,158,11,0.02))",
+    borderRadius: 12,
+    padding: 14,
+    border: "1px solid rgba(245,158,11,0.06)",
+    display: "none",
   },
   sponsoredBadge: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: 700,
     color: "#f59e0b",
     textTransform: "uppercase" as const,
-    marginBottom: 8,
+    marginBottom: 4,
+    opacity: 0.7,
+    letterSpacing: 0.5,
   },
   sponsoredTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 600,
     color: "white",
-    marginBottom: 4,
+    marginBottom: 2,
   },
   sponsoredCompany: {
-    fontSize: 13,
+    fontSize: 12,
     color: "rgba(255,255,255,0.5)",
-    marginBottom: 12,
+    marginBottom: 8,
   },
   sponsoredCta: {
-    fontSize: 13,
+    fontSize: 12,
     color: "#f59e0b",
     fontWeight: 500,
     cursor: "pointer",
@@ -1093,118 +1123,41 @@ const styles: { [key: string]: React.CSSProperties } = {
     background: "rgba(30,41,59,0.8)",
     backdropFilter: "blur(10px)",
     color: "white",
-    padding: "14px 24px",
-    borderRadius: 12,
-    margin: "20px auto 0",
+    padding: "10px 16px",
+    borderRadius: 10,
+    margin: "12px 0",
     textAlign: "center" as const,
-    fontSize: 14,
-    maxWidth: 1200,
-    border: "1px solid rgba(255,255,255,0.03)",
-  },
-  limitWarning: {
-    position: "relative" as const,
-    zIndex: 5,
-    background: "rgba(254, 243, 199, 0.06)",
-    backdropFilter: "blur(10px)",
-    borderRadius: 12,
-    padding: "12px 20px",
-    margin: "16px auto 0",
-    textAlign: "center" as const,
-    color: "#fbbf24",
     fontSize: 13,
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 8,
-    flexWrap: "wrap" as const,
-    maxWidth: 1200,
-    border: "1px solid rgba(251, 191, 36, 0.08)",
-  },
-  upgradeLink: {
-    background: "none",
-    border: "none",
-    color: "#f59e0b",
-    fontWeight: 600,
-    cursor: "pointer",
-    textDecoration: "underline",
-  },
-  paymentOverlay: {
-    position: "fixed" as const,
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background: "rgba(0,0,0,0.7)",
-    backdropFilter: "blur(12px)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 1000,
-    padding: 20,
-  },
-  paymentCard: {
-    background: "linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%)",
-    border: "1px solid rgba(255,255,255,0.04)",
-    borderRadius: 24,
-    padding: 36,
-    textAlign: "center" as const,
-    maxWidth: 380,
-    width: "100%",
-    boxShadow: "0 40px 80px rgba(0,0,0,0.4)",
-  },
-  payBtn: {
-    background: "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)",
-    color: "white",
-    border: "none",
-    padding: "14px 24px",
-    borderRadius: 12,
-    fontSize: 16,
-    fontWeight: 600,
-    cursor: "pointer",
-    width: "100%",
-    marginBottom: 12,
-    boxShadow: "0 4px 30px rgba(37,99,235,0.2)",
-    transition: "all 0.3s",
-  },
-  cancelBtn: {
-    background: "rgba(255,255,255,0.04)",
-    color: "rgba(255,255,255,0.5)",
-    border: "1px solid rgba(255,255,255,0.04)",
-    padding: "12px 20px",
-    borderRadius: 12,
-    fontSize: 14,
-    cursor: "pointer",
-    width: "100%",
-    transition: "all 0.3s",
+    border: "1px solid rgba(255,255,255,0.03)",
   },
   skillsCard: {
     position: "relative" as const,
     zIndex: 5,
     background: "rgba(255,255,255,0.02)",
     backdropFilter: "blur(10px)",
-    borderRadius: 16,
-    padding: 20,
-    margin: "20px auto 0",
-    maxWidth: 1200,
+    borderRadius: 14,
+    padding: 16,
+    margin: "12px 0",
     border: "1px solid rgba(255,255,255,0.03)",
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 600,
-    marginBottom: 14,
+    marginBottom: 12,
     color: "white",
+    padding: "0 4px",
   },
   skillsContainer: {
     display: "flex",
-    gap: 10,
+    gap: 8,
     flexWrap: "wrap" as const,
   },
   skillTag: {
     background: "linear-gradient(135deg, rgba(37,99,235,0.12), rgba(124,58,237,0.06))",
     color: "#93c5fd",
-    padding: "6px 16px",
-    borderRadius: 20,
-    fontSize: 12,
+    padding: "4px 12px",
+    borderRadius: 16,
+    fontSize: 11,
     fontWeight: 500,
     border: "1px solid rgba(37,99,235,0.06)",
   },
@@ -1212,19 +1165,20 @@ const styles: { [key: string]: React.CSSProperties } = {
     position: "relative" as const,
     zIndex: 5,
     maxWidth: 1200,
-    margin: "20px auto 0",
-    padding: "0 20px 40px",
+    margin: "0 auto",
+    padding: "0 0 30px",
   },
   jobsGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
-    gap: 16,
+    gridTemplateColumns: "1fr",
+    gap: 12,
+    padding: "0 4px",
   },
   jobCard: {
     background: "rgba(255,255,255,0.02)",
     backdropFilter: "blur(10px)",
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 14,
+    padding: 14,
     border: "1px solid rgba(255,255,255,0.03)",
     boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03), 0 8px 32px rgba(0,0,0,0.15)",
     transition: "all 0.3s",
@@ -1233,59 +1187,59 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 10,
+    marginBottom: 8,
   },
   jobTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 600,
     marginBottom: 2,
     color: "white",
   },
   jobCompany: {
     color: "rgba(255,255,255,0.4)",
-    fontSize: 13,
+    fontSize: 12,
   },
   matchBadge: {
     background: "linear-gradient(135deg, rgba(52,211,153,0.12), rgba(16,185,129,0.06))",
     color: "#34d399",
-    padding: "4px 12px",
-    borderRadius: 20,
-    fontSize: 12,
+    padding: "2px 10px",
+    borderRadius: 16,
+    fontSize: 11,
     fontWeight: 600,
     border: "1px solid rgba(52,211,153,0.06)",
   },
   jobLocation: {
     color: "rgba(255,255,255,0.35)",
-    fontSize: 13,
+    fontSize: 12,
     marginBottom: 4,
   },
   jobDistance: {
     color: "#6366f1",
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 500,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   matchingSkills: {
     display: "flex",
-    gap: 8,
+    gap: 6,
     flexWrap: "wrap" as const,
-    marginBottom: 14,
+    marginBottom: 10,
   },
   smallSkillTag: {
     background: "rgba(255,255,255,0.03)",
     color: "rgba(255,255,255,0.4)",
-    padding: "2px 10px",
-    borderRadius: 12,
-    fontSize: 11,
+    padding: "2px 8px",
+    borderRadius: 10,
+    fontSize: 10,
     border: "1px solid rgba(255,255,255,0.02)",
   },
   applyBtn: {
     background: "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)",
     color: "white",
     border: "none",
-    padding: "10px",
-    borderRadius: 10,
-    fontSize: 14,
+    padding: "8px",
+    borderRadius: 8,
+    fontSize: 13,
     fontWeight: 500,
     cursor: "pointer",
     width: "100%",
@@ -1303,30 +1257,29 @@ const styles: { [key: string]: React.CSSProperties } = {
     zIndex: 5,
     background: "rgba(255,255,255,0.02)",
     backdropFilter: "blur(10px)",
-    borderRadius: 16,
-    padding: 40,
+    borderRadius: 14,
+    padding: 30,
     textAlign: "center" as const,
-    maxWidth: 1200,
-    margin: "20px auto 40px",
+    margin: "12px 0 30px",
     border: "1px solid rgba(255,255,255,0.03)",
   },
   emptyIcon: {
-    fontSize: 40,
-    marginBottom: 12,
+    fontSize: 36,
+    marginBottom: 10,
   },
   emptyTitle: {
-    fontSize: 18,
-    marginBottom: 8,
+    fontSize: 16,
+    marginBottom: 6,
     color: "white",
   },
   emptyDesc: {
     color: "rgba(255,255,255,0.35)",
-    marginBottom: 16,
-    fontSize: 14,
+    marginBottom: 12,
+    fontSize: 13,
   },
   emptyFeatures: {
     display: "flex",
-    gap: 12,
+    gap: 10,
     justifyContent: "center",
     flexWrap: "wrap" as const,
   },
@@ -1354,6 +1307,43 @@ if (typeof document !== 'undefined') {
       0% { transform: scale(1) rotate(0deg); }
       100% { transform: scale(1.1) rotate(5deg); }
     }
+    @media (min-width: 768px) {
+      .mainLayout {
+        flex-direction: row !important;
+        align-items: flex-start !important;
+      }
+      .sidebar {
+        width: 300px !important;
+        min-width: 300px !important;
+        position: sticky !important;
+        top: 80px !important;
+      }
+      .sponsoredCard {
+        display: block !important;
+      }
+      .jobsGrid {
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)) !important;
+      }
+    }
+    @media (max-width: 480px) {
+      .heroTitle {
+        font-size: 26px !important;
+      }
+      .uploadHero {
+        padding: 16px 12px !important;
+      }
+      .uploadBtn {
+        font-size: 13px !important;
+        padding: 8px 18px !important;
+        min-width: 100px !important;
+      }
+      .jobTitle {
+        font-size: 14px !important;
+      }
+      .adContainer {
+        min-height: 150px !important;
+      }
+    }
     [class*="companyLogo"]:hover {
       transform: translateY(-2px);
       background: rgba(255,255,255,0.05);
@@ -1362,8 +1352,8 @@ if (typeof document !== 'undefined') {
       opacity: 1;
     }
     [class*="jobCard"]:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 8px 40px rgba(0,0,0,0.2);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.2);
       border-color: rgba(37,99,235,0.06);
     }
     [class*="uploadBrowse"]:hover {
