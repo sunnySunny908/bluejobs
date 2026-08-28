@@ -1,9 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import mammoth from 'mammoth';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { prisma } from '@/lib/prisma';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+// ==================== HELPER: ROBUST JSON EXTRACTOR ====================
+function extractJsonFromText(text: string): any {
+  const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  if (codeBlockMatch) {
+    try {
+      return JSON.parse(codeBlockMatch[1].trim());
+    } catch (e) {}
+  }
+
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    try {
+      return JSON.parse(jsonMatch[0]);
+    } catch (e) {
+      throw new Error("Failed to parse extracted JSON object");
+    }
+  }
+
+  throw new Error("No valid JSON found in AI response");
+}
 
 // ==================== READ FILE CONTENT ====================
 async function readFileContent(file: File): Promise<string> {
@@ -23,11 +41,16 @@ async function readFileContent(file: File): Promise<string> {
     }
   }
   
-  return "";
+  try {
+    return buffer.toString('utf-8');
+  } catch (e) {
+    console.error("File read error:", e);
+    return "";
+  }
 }
 
-// ==================== AI-BASED DEEP CV ANALYSIS ====================
-async function analyzeCVWithAI(text: string): Promise<{
+// ==================== DEEP CV ANALYSIS WITH OPENROUTER ====================
+async function analyzeCVWithOpenRouter(text: string): Promise<{
   primaryRole: string;
   secondaryRoles: string[];
   keySkills: string[];
@@ -37,55 +60,83 @@ async function analyzeCVWithAI(text: string): Promise<{
   searchTerms: string[];
 }> {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
     
+    if (!OPENROUTER_API_KEY) {
+      console.error("❌ OpenRouter API key missing!");
+      return fallbackAnalysis(text);
+    }
+
     const prompt = `
-      You are an expert career coach and job matching specialist. Analyze this resume in depth and extract structured information.
-
-      CRITICAL RULES:
-      1. Read the ENTIRE resume carefully — professional summary, experience, skills, education.
-      2. Identify the PRIMARY JOB ROLE based on experience (not education).
-      3. Identify SECONDARY ROLES the person is qualified for.
-      4. Extract ALL relevant skills (technical + soft) mentioned in experience.
-      5. Calculate TOTAL YEARS of experience from professional experience.
-      6. Determine the INDUSTRY based on work experience.
-      7. Write a 2-3 line SUMMARY of what this person does.
-      8. Generate 5-10 SEARCH TERMS that would find the most relevant jobs.
-
-      Return ONLY valid JSON (no markdown, no explanation):
+      You are an expert career coach. Analyze this resume.
+      Return ONLY valid JSON:
       {
-        "primaryRole": "Most accurate job title based on experience",
+        "primaryRole": "Most accurate job title",
         "secondaryRoles": ["role2", "role3"],
-        "keySkills": ["skill1", "skill2", "skill3", "skill4", "skill5"],
+        "keySkills": ["skill1", "skill2", "skill3"],
         "experienceYears": X,
         "industry": "Industry name",
         "summary": "2-3 line summary",
-        "searchTerms": ["search term 1", "search term 2", "search term 3", "search term 4", "search term 5"]
+        "searchTerms": ["term1", "term2", "term3"]
       }
 
       Resume text:
-      ${text.substring(0, 10000)}
+      ${text.substring(0, 8000)}
     `;
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text_response = response.text();
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://bluejobs.onrender.com",
+        "X-Title": "bluejobs"
+      },
+      body: JSON.stringify({
+        model: "meta-llama/llama-3.1-70b-instruct",
+        messages: [
+          { role: "system", content: "Output ONLY valid JSON." },
+          { role: "user", content: prompt }
+        ],
+        temperature: 0.1,
+        max_tokens: 1000,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("❌ OpenRouter API Error:", response.status, errorText);
+      return fallbackAnalysis(text);
+    }
+
+    const data = await response.json();
     
-    const cleanJson = text_response.replace(/```json/g, '').replace(/```/g, '').trim();
-    const parsed = JSON.parse(cleanJson);
+    if (!data.choices || !data.choices[0]) {
+      console.error("❌ OpenRouter unexpected response:", data);
+      return fallbackAnalysis(text);
+    }
+
+    const text_response = data.choices[0].message.content || "";
+    
+    let parsed: any;
+    try {
+      parsed = extractJsonFromText(text_response);
+    } catch (parseError) {
+      console.error("❌ JSON Parsing Error:", parseError);
+      return fallbackAnalysis(text);
+    }
     
     return {
       primaryRole: parsed.primaryRole || 'Software Developer',
-      secondaryRoles: parsed.secondaryRoles || [],
-      keySkills: parsed.keySkills || [],
+      secondaryRoles: Array.isArray(parsed.secondaryRoles) ? parsed.secondaryRoles : [],
+      keySkills: Array.isArray(parsed.keySkills) ? parsed.keySkills : [],
       experienceYears: parsed.experienceYears || 3,
       industry: parsed.industry || 'Technology',
       summary: parsed.summary || 'Professional with relevant experience',
-      searchTerms: parsed.searchTerms || ['software developer']
+      searchTerms: Array.isArray(parsed.searchTerms) ? parsed.searchTerms : ['software developer']
     };
   } catch (error) {
-    console.error("❌ AI Analysis Error:", error);
-    // Fallback to keyword-based
+    console.error("❌ OpenRouter Analysis Error:", error);
     return fallbackAnalysis(text);
   }
 }
@@ -107,43 +158,17 @@ function fallbackAnalysis(text: string): {
   let experienceYears = 3;
   let industry = "Technology";
 
-  // Detect role from keywords
-  if (lowerText.includes("frontend") || lowerText.includes("react") || lowerText.includes("ui/ux")) {
+  if (lowerText.includes("frontend") || lowerText.includes("react")) {
     primaryRole = "Frontend Developer";
-  } else if (lowerText.includes("backend") || lowerText.includes("api") || lowerText.includes("node.js")) {
+  } else if (lowerText.includes("backend") || lowerText.includes("api")) {
     primaryRole = "Backend Developer";
-  } else if (lowerText.includes("full stack") || lowerText.includes("mern") || lowerText.includes("full-stack")) {
+  } else if (lowerText.includes("full stack")) {
     primaryRole = "Full Stack Developer";
-  } else if (lowerText.includes("devops") || lowerText.includes("sre") || lowerText.includes("ci/cd")) {
-    primaryRole = "DevOps Engineer";
-  } else if (lowerText.includes("data") || lowerText.includes("etl") || lowerText.includes("warehouse")) {
-    primaryRole = "Data Engineer";
-  } else if (lowerText.includes("machine learning") || lowerText.includes("ai") || lowerText.includes("data science")) {
-    primaryRole = "Data Scientist";
-  } else if (lowerText.includes("ios") || lowerText.includes("android") || lowerText.includes("mobile")) {
-    primaryRole = "Mobile Developer";
-  } else if (lowerText.includes("security") || lowerText.includes("cybersecurity")) {
-    primaryRole = "Security Engineer";
-  } else if (lowerText.includes("qa") || lowerText.includes("testing") || lowerText.includes("selenium")) {
-    primaryRole = "QA Engineer";
+  } else if (lowerText.includes("payroll") || lowerText.includes("tax")) {
+    primaryRole = "Payroll Specialist";
   }
 
-  // Detect secondary roles
-  if (primaryRole !== "Frontend Developer" && (lowerText.includes("react") || lowerText.includes("angular") || lowerText.includes("vue"))) {
-    secondaryRoles.push("Frontend Developer");
-  }
-  if (primaryRole !== "Backend Developer" && (lowerText.includes("node.js") || lowerText.includes("django") || lowerText.includes("spring"))) {
-    secondaryRoles.push("Backend Developer");
-  }
-  if (primaryRole !== "DevOps Engineer" && (lowerText.includes("docker") || lowerText.includes("kubernetes") || lowerText.includes("aws"))) {
-    secondaryRoles.push("DevOps Engineer");
-  }
-  if (primaryRole !== "Data Engineer" && (lowerText.includes("sql") || lowerText.includes("spark") || lowerText.includes("hadoop"))) {
-    secondaryRoles.push("Data Engineer");
-  }
-
-  // Extract skills
-  const skillKeywords = ['react', 'angular', 'vue', 'node.js', 'python', 'java', 'javascript', 'typescript', 'aws', 'docker', 'kubernetes', 'sql', 'mongodb', 'postgresql', 'git', 'linux', 'agile', 'scrum', 'tdd', 'ci/cd', 'devops', 'cloud', 'api', 'rest', 'graphql', 'microservices', 'html', 'css', 'tailwind', 'bootstrap', 'redux', 'jest', 'cypress', 'selenium', 'jenkins', 'terraform', 'ansible', 'prometheus', 'grafana', 'kafka', 'redis', 'elasticsearch', 'spark', 'hadoop', 'airflow', 'tensorflow', 'pytorch', 'pandas', 'numpy', 'scikit-learn', 'django', 'flask', 'spring', 'spring boot', 'laravel', 'rails', 'asp.net'];
+  const skillKeywords = ['react', 'node.js', 'python', 'java', 'javascript', 'typescript', 'aws', 'docker', 'kubernetes', 'sql', 'mongodb', 'postgresql', 'git', 'linux', 'agile', 'payroll', 'tax', 'accounting', 'reconciliation', 'compliance'];
   
   for (const skill of skillKeywords) {
     if (lowerText.includes(skill)) {
@@ -151,24 +176,10 @@ function fallbackAnalysis(text: string): {
     }
   }
 
-  // Extract experience
   const expMatch = text.match(/(\d+)\s*(?:years?|yrs?)/i);
   if (expMatch) {
     experienceYears = parseInt(expMatch[1]);
   }
-
-  // Industry detection
-  if (lowerText.includes("payroll") || lowerText.includes("tax") || lowerText.includes("finance")) {
-    industry = "Finance/Payroll";
-  } else if (lowerText.includes("healthcare") || lowerText.includes("medical") || lowerText.includes("clinical")) {
-    industry = "Healthcare";
-  } else if (lowerText.includes("education") || lowerText.includes("teaching") || lowerText.includes("training")) {
-    industry = "Education";
-  } else if (lowerText.includes("sales") || lowerText.includes("business development") || lowerText.includes("crm")) {
-    industry = "Sales";
-  }
-
-  const searchTerms = [primaryRole, ...secondaryRoles.slice(0, 2), ...keySkills.slice(0, 3)];
 
   return {
     primaryRole,
@@ -176,8 +187,8 @@ function fallbackAnalysis(text: string): {
     keySkills: keySkills.slice(0, 10),
     experienceYears,
     industry,
-    summary: `${primaryRole} with ${experienceYears} years of experience in ${industry}`,
-    searchTerms: searchTerms.slice(0, 8)
+    summary: `${primaryRole} with ${experienceYears} years`,
+    searchTerms: [primaryRole, ...keySkills.slice(0, 3)]
   };
 }
 
@@ -187,25 +198,16 @@ function calculateMatchPercentage(jobTitle: string, jobDescription: string, aiAn
   let matchCount = 0;
   const allSkills = [...aiAnalysis.keySkills, ...aiAnalysis.secondaryRoles];
   
-  // Match against skills
   for (const skill of allSkills) {
     if (combinedText.includes(skill.toLowerCase())) {
       matchCount += 2;
     }
   }
   
-  // Match against primary role
   const roleWords = aiAnalysis.primaryRole.toLowerCase().split(' ');
   for (const word of roleWords) {
     if (word.length > 3 && combinedText.includes(word)) {
       matchCount += 3;
-    }
-  }
-  
-  // Match against search terms
-  for (const term of aiAnalysis.searchTerms) {
-    if (combinedText.includes(term.toLowerCase())) {
-      matchCount += 1;
     }
   }
   
@@ -227,17 +229,23 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * c;
 }
 
-// ==================== GET COORDINATES ====================
+// ==================== GET COORDINATES (CACHED) ====================
+const cityCoordsCache = new Map<string, { lat: number; lon: number }>();
+
 async function getCoordinates(city: string): Promise<{ lat: number; lon: number } | null> {
   if (!city || city === "India" || city === "" || city.length < 2) {
     return null;
+  }
+  
+  if (cityCoordsCache.has(city)) {
+    return cityCoordsCache.get(city)!;
   }
   
   try {
     const cleanCity = city.replace(/[^a-zA-Z ]/g, '').trim();
     if (!cleanCity || cleanCity.length < 2) return null;
     
-    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(cleanCity)}&format=json&limit=1`;
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(cleanCity + ', India')}&format=json&limit=1`;
     const response = await fetch(url, {
       headers: { 'User-Agent': 'bluejobs/1.0' }
     });
@@ -245,10 +253,12 @@ async function getCoordinates(city: string): Promise<{ lat: number; lon: number 
     if (response.ok) {
       const data = await response.json();
       if (data && data.length > 0) {
-        return {
+        const coords = {
           lat: parseFloat(data[0].lat),
           lon: parseFloat(data[0].lon)
         };
+        cityCoordsCache.set(city, coords);
+        return coords;
       }
     }
     return null;
@@ -258,10 +268,38 @@ async function getCoordinates(city: string): Promise<{ lat: number; lon: number 
   }
 }
 
-// ==================== POST API ====================
+// ==================== GET NEARBY CITIES ====================
+async function getNearbyCities(lat: number, lon: number, radiusKm: number = 70): Promise<string[]> {
+  const majorCities = [
+    { name: "Delhi", lat: 28.6139, lon: 77.2090 },
+    { name: "Noida", lat: 28.5355, lon: 77.3910 },
+    { name: "Greater Noida", lat: 28.4744, lon: 77.5040 },
+    { name: "Gurgaon", lat: 28.4595, lon: 77.0266 },
+    { name: "Faridabad", lat: 28.4089, lon: 77.3178 },
+    { name: "Ghaziabad", lat: 28.6692, lon: 77.4538 },
+    { name: "Mumbai", lat: 19.0760, lon: 72.8777 },
+    { name: "Bangalore", lat: 12.9716, lon: 77.5946 },
+    { name: "Hyderabad", lat: 17.3850, lon: 78.4867 },
+    { name: "Chennai", lat: 13.0827, lon: 80.2707 },
+    { name: "Pune", lat: 18.5204, lon: 73.8567 },
+  ];
+  
+  const nearbyCities: string[] = [];
+  
+  for (const city of majorCities) {
+    const distance = calculateDistance(lat, lon, city.lat, city.lon);
+    if (distance <= radiusKm) {
+      nearbyCities.push(city.name);
+    }
+  }
+  
+  return nearbyCities;
+}
+
+// ==================== POST API (SEARCH ALL CITIES) ====================
 export async function POST(req: NextRequest) {
   try {
-    console.log("📄 AI-Based CV Analysis with 70km Radius...");
+    console.log("📄 OpenRouter-Based Deep CV Analysis with 70km Radius...");
     
     const formData = await req.formData();
     const file = formData.get('cv') as File;
@@ -276,19 +314,14 @@ export async function POST(req: NextRequest) {
     let cvText = await readFileContent(file);
     
     console.log("📄 File size:", cvText.length, "bytes");
-    console.log("📍 User Location:", userLocation);
+    console.log("📍 User Coords:", userLat, userLng);
     
-    // ==================== AI-BASED DEEP ANALYSIS ====================
-    const aiAnalysis = await analyzeCVWithAI(cvText);
+    // ==================== OPENROUTER ANALYSIS ====================
+    const aiAnalysis = await analyzeCVWithOpenRouter(cvText);
     
-    console.log("🧠 AI Analysis Complete:");
+    console.log("🧠 OpenRouter Analysis Complete:");
     console.log("🏆 Primary Role:", aiAnalysis.primaryRole);
-    console.log("📋 Secondary Roles:", aiAnalysis.secondaryRoles);
     console.log("🎯 Key Skills:", aiAnalysis.keySkills.slice(0, 5));
-    console.log("📅 Experience:", aiAnalysis.experienceYears, "years");
-    console.log("🏢 Industry:", aiAnalysis.industry);
-    console.log("📝 Summary:", aiAnalysis.summary);
-    console.log("🔍 Search Terms:", aiAnalysis.searchTerms);
 
     const APP_ID = process.env.ADZUNA_APP_ID;
     const API_KEY = process.env.ADZUNA_API_KEY;
@@ -297,50 +330,49 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'API keys missing' }, { status: 500 });
     }
     
-    // ==================== GET USER COORDINATES ====================
+    // ==================== GET USER COORDINATES & SEARCH LOCATIONS ====================
     let userCoords = null;
+    let searchLocations: string[] = [];
+    
     if (userLat && userLng) {
       userCoords = {
         lat: parseFloat(userLat),
         lon: parseFloat(userLng)
       };
-    } else if (userLocation && userLocation !== "India" && userLocation !== "") {
-      userCoords = await getCoordinates(userLocation);
+      
+      // ✅ Get ALL nearby cities within 70km
+      searchLocations = await getNearbyCities(userCoords.lat, userCoords.lon, 70);
+      console.log("🏙️ Nearby cities within 70km:", searchLocations);
+      
+      if (searchLocations.length === 0) {
+        searchLocations = ["India"]; // Fallback
+      }
+    } else if (userLocation && userLocation !== "India") {
+      searchLocations = [userLocation];
+    } else {
+      searchLocations = ["India"];
     }
     
-    // ==================== BUILD SEARCH QUERIES ====================
+    // ==================== BUILD SEARCH TERMS ====================
     let searchTerms = [...aiAnalysis.searchTerms];
     
-    // Add primary role if not already included
     if (!searchTerms.some(t => t.toLowerCase().includes(aiAnalysis.primaryRole.toLowerCase()))) {
       searchTerms.unshift(aiAnalysis.primaryRole);
     }
     
-    // Add secondary roles
     for (const role of aiAnalysis.secondaryRoles) {
       if (!searchTerms.some(t => t.toLowerCase().includes(role.toLowerCase()))) {
         searchTerms.push(role);
       }
     }
     
-    // Add top skills
-    for (const skill of aiAnalysis.keySkills.slice(0, 3)) {
-      if (!searchTerms.some(t => t.toLowerCase().includes(skill.toLowerCase()))) {
-        searchTerms.push(skill);
-      }
-    }
-    
     searchTerms = [...new Set(searchTerms.filter(term => term && term.trim().length > 0))];
-    
-    if (searchTerms.length === 0) {
-      searchTerms = ['software developer'];
-    }
     
     console.log("🔍 Final Search Terms:", searchTerms.slice(0, 10));
     
-    // ==================== FETCH JOBS ====================
+    // ==================== FETCH JOBS FROM ALL CITIES ====================
     let allJobs: any[] = [];
-    const location = "India";
+    let totalJobsFound = 0;
     
     const fetchWithTimeout = async (url: string, timeout = 15000) => {
       const controller = new AbortController();
@@ -358,16 +390,22 @@ export async function POST(req: NextRequest) {
       }
     };
     
-    for (const term of searchTerms.slice(0, 3)) {
-      for (let page = 1; page <= 2; page++) {
+    // ✅ SEARCH IN ALL CITIES (not just the first one)
+    for (const location of searchLocations) {
+      console.log(`\n🔍 Searching in ${location}...`);
+      
+      for (const term of searchTerms.slice(0, 3)) { // Top 3 terms
         try {
-          const url = `https://api.adzuna.com/v1/api/jobs/in/search/${page}?app_id=${APP_ID}&app_key=${API_KEY}&results_per_page=15&what=${encodeURIComponent(term)}&where=${encodeURIComponent(location)}&max_days_old=7&content-type=application/json`;
+          const url = `https://api.adzuna.com/v1/api/jobs/in/search/1?app_id=${APP_ID}&app_key=${API_KEY}&results_per_page=15&what=${encodeURIComponent(term)}&where=${encodeURIComponent(location)}&max_days_old=7&content-type=application/json`;
           
           const response = await fetchWithTimeout(url, 15000);
           
           if (response.ok) {
             const data = await response.json();
             if (data.results && data.results.length > 0) {
+              console.log(`  ✅ ${data.results.length} jobs found for "${term}" in ${location}`);
+              totalJobsFound += data.results.length;
+              
               for (const job of data.results) {
                 let jobCity = "";
                 let distance = null;
@@ -378,6 +416,7 @@ export async function POST(req: NextRequest) {
                   jobCity = parts[0]?.trim() || "";
                 }
                 
+                // Calculate distance if we have coords
                 if (userCoords && jobCity) {
                   const jobCoords = await getCoordinates(jobCity);
                   if (jobCoords) {
@@ -388,44 +427,46 @@ export async function POST(req: NextRequest) {
                     isWithinRadius = distance <= 70;
                     
                     if (isWithinRadius) {
-                      console.log(`✅ ${job.title} - ${jobCity}: ${distance.toFixed(1)}km (WITHIN 70km)`);
+                      console.log(`    ✓ ${job.title} - ${jobCity}: ${distance.toFixed(1)}km (WITHIN 70km)`);
                     } else {
-                      console.log(`❌ ${job.title} - ${jobCity}: ${distance.toFixed(1)}km (OUTSIDE 70km)`);
+                      console.log(`    ✗ ${job.title} - ${jobCity}: ${distance.toFixed(1)}km (OUTSIDE 70km)`);
                     }
                   }
                 }
                 
-                if (!userCoords || (userCoords && isWithinRadius)) {
-                  allJobs.push({
-                    id: `${job.id}_${term}_${page}`,
-                    title: job.title || "Unknown",
-                    company: job.company?.display_name || "Unknown",
-                    location: job.location?.display_name || "India",
-                    city: jobCity,
-                    description: job.description?.substring(0, 500) || "",
-                    url: job.redirect_url || "#",
-                    postedDate: new Date(job.created || Date.now()),
-                    matchPercentage: calculateMatchPercentage(job.title || '', job.description || '', aiAnalysis),
-                    matchingSkills: aiAnalysis.keySkills.filter(skill => 
-                      (job.title + ' ' + (job.description || '')).toLowerCase().includes(skill.toLowerCase())
-                    ).slice(0, 5),
-                    primaryRole: aiAnalysis.primaryRole,
-                    isTechJob: true,
-                    distance: distance,
-                    withinRadius: isWithinRadius
-                  });
-                }
+                allJobs.push({
+                  id: `${job.id}_${term}_${location}`,
+                  title: job.title || "Unknown",
+                  company: job.company?.display_name || "Unknown",
+                  location: job.location?.display_name || "India",
+                  city: jobCity,
+                  description: job.description?.substring(0, 500) || "",
+                  url: job.redirect_url || "#",
+                  postedDate: new Date(job.created || Date.now()),
+                  matchPercentage: calculateMatchPercentage(job.title || '', job.description || '', aiAnalysis),
+                  matchingSkills: aiAnalysis.keySkills.filter(skill => 
+                    (job.title + ' ' + (job.description || '')).toLowerCase().includes(skill.toLowerCase())
+                  ).slice(0, 5),
+                  primaryRole: aiAnalysis.primaryRole,
+                  isTechJob: true,
+                  distance: distance,
+                  withinRadius: isWithinRadius
+                });
               }
+            } else {
+              console.log(`  - No jobs for "${term}" in ${location}`);
             }
           }
         } catch (err) {
-          console.error(`Error fetching ${term}:`, err);
+          console.error(`  Error fetching ${term} in ${location}:`, err);
         }
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 300)); // Rate limiting
       }
     }
     
-    // ==================== FILTER & SORT JOBS ====================
+    console.log(`\n📊 Total raw jobs found: ${totalJobsFound}`);
+    
+    // ==================== FILTER & SORT ====================
     const seenUrls = new Set();
     const filteredJobs = allJobs
       .filter(job => {
@@ -439,10 +480,18 @@ export async function POST(req: NextRequest) {
         const diffDays = (now.getTime() - postedDate.getTime()) / (1000 * 60 * 60 * 24);
         return diffDays <= 7;
       })
-      .sort((a, b) => b.matchPercentage - a.matchPercentage)
+      .sort((a, b) => {
+        // Prioritize jobs within radius
+        if (a.withinRadius && !b.withinRadius) return -1;
+        if (!a.withinRadius && b.withinRadius) return 1;
+        return b.matchPercentage - a.matchPercentage;
+      })
       .slice(0, 50);
     
-    console.log(`✅ ${filteredJobs.length} jobs found within 70km of ${userLocation || "India"}`);
+    const withinRadiusCount = filteredJobs.filter(j => j.withinRadius).length;
+    
+    console.log(`\n✅ ${filteredJobs.length} unique jobs`);
+    console.log(`📍 Within 70km: ${withinRadiusCount}`);
     
     return NextResponse.json({
       success: true,
@@ -456,11 +505,12 @@ export async function POST(req: NextRequest) {
       searchTermsUsed: searchTerms,
       matchedJobs: filteredJobs,
       totalMatches: filteredJobs.length,
-      source: 'AI-Powered Deep CV Analysis (Gemini 2.0 Flash)',
-      location: userLocation || "India",
+      withinRadiusCount,
+      source: 'OpenRouter AI',
+      location: searchLocations.join(', '),
       message: filteredJobs.length > 0 
-        ? `✅ ${filteredJobs.length} jobs within 70km, matching your experience (${aiAnalysis.primaryRole})`
-        : `⚠️ No jobs found within 70km matching your profile. Try a different location.`
+        ? `✅ ${withinRadiusCount} jobs within 70km, ${filteredJobs.length - withinRadiusCount} nearby (total: ${filteredJobs.length})`
+        : `⚠️ No jobs found. Try different search terms.`
     });
     
   } catch (error) {

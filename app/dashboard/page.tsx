@@ -1,15 +1,8 @@
-
 "use client";
 import { useSession } from "next-auth/react";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import AdUnit from "../components/AdUnit";
-
-declare global {
-  interface Window {
-    Razorpay: any;
-  }
-}
 
 const trustedCompanies = [
   { name: "Google", domain: "google.com" },
@@ -66,7 +59,6 @@ const trustedCompanies = [
 const GUEST_USER = {
   name: "Guest User",
   email: "guest@bluejobs.com",
-  applyCount: 20,
 };
 
 export default function Dashboard() {
@@ -77,30 +69,21 @@ export default function Dashboard() {
   const [jobs, setJobs] = useState<any[]>([]);
   const [skills, setSkills] = useState<string[]>([]);
   const [appliedJobs, setAppliedJobs] = useState<Set<string>>(new Set());
-  const [showPaymentPopup, setShowPaymentPopup] = useState(false);
   const [message, setMessage] = useState("");
   const [logoErrors, setLogoErrors] = useState<Set<string>>(new Set());
   const [isDragging, setIsDragging] = useState(false);
+  
+  // ✅ 70KM RADIUS STATES
   const [userLocation, setUserLocation] = useState<string>("");
   const [locationPermission, setLocationPermission] = useState<boolean>(false);
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [manualLocation, setManualLocation] = useState<string>("");
   
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const user = session?.user || GUEST_USER;
   const userName = user?.name || "Guest";
-  const userApplyCount = (user as any)?.applyCount || 0;
-  const remainingApplies = 20 - userApplyCount;
-  const canApply = remainingApplies > 0;
 
-  useEffect(() => {
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.async = true;
-    document.body.appendChild(script);
-  }, []);
-
-  // GET USER LOCATION
   useEffect(() => {
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
@@ -110,9 +93,20 @@ export default function Dashboard() {
           setUserCoords({ lat: latitude, lng: longitude });
           
           try {
+            const fallbackRes = await fetch(
+              `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+            );
+            
+            if (fallbackRes.ok) {
+              const data = await fallbackRes.json();
+              const city = data.city || data.principalSubdivision || "India";
+              setUserLocation(city);
+              console.log("📍 User Location:", city);
+              return;
+            }
+            
             const response = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10`,
-              { headers: { 'User-Agent': 'bluejobs/1.0' } }
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10`
             );
             
             if (response.ok) {
@@ -128,18 +122,9 @@ export default function Dashboard() {
               }
               if (city) {
                 setUserLocation(city);
+                console.log("📍 User Location (Nominatim):", city);
                 return;
               }
-            }
-            
-            const fallbackRes = await fetch(
-              `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
-            );
-            if (fallbackRes.ok) {
-              const data = await fallbackRes.json();
-              const city = data.city || data.principalSubdivision || "India";
-              setUserLocation(city);
-              return;
             }
             
             setUserLocation("India");
@@ -152,7 +137,7 @@ export default function Dashboard() {
           console.log("Location permission denied:", error.message);
           setLocationPermission(false);
           setUserLocation("India");
-          setMessage("📍 Please allow location access for 70km radius jobs");
+          setMessage("Location denied. Please enter your city manually for 70km radius jobs.");
         },
         {
           enableHighAccuracy: true,
@@ -162,6 +147,7 @@ export default function Dashboard() {
       );
     } else {
       setUserLocation("India");
+      setMessage("Geolocation not supported. Please enter your city manually.");
     }
   }, []);
 
@@ -174,58 +160,8 @@ export default function Dashboard() {
     );
   }
 
-  const handlePayment = async () => {
-    try {
-      const res = await fetch("/api/create-payment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: 99 }),
-      });
-      const { orderId, amount } = await res.json();
-
-      const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        amount: amount * 100,
-        currency: "INR",
-        name: "bluejobs",
-        description: "100 Job Applications",
-        order_id: orderId,
-        handler: async (response: any) => {
-          const verifyRes = await fetch("/api/verify-payment", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(response),
-          });
-          const data = await verifyRes.json();
-          if (data.success) {
-            setMessage("Payment successful!");
-            setShowPaymentPopup(false);
-            if (update) update();
-            setTimeout(() => setMessage(""), 3000);
-          } else {
-            setMessage("Payment failed");
-          }
-        },
-        prefill: {
-          name: user?.name || "",
-          email: user?.email || "",
-        },
-        theme: { color: "#2563eb" },
-      };
-
-      const razorpay = new window.Razorpay(options);
-      razorpay.open();
-    } catch (error) {
-      setMessage("Payment failed. Try again.");
-    }
-  };
-
   const handleApply = async (job: any) => {
-    if (!canApply) {
-      setShowPaymentPopup(true);
-      return;
-    }
-
+    // ✅ Removed apply limit check. Users can apply unlimited times.
     if (appliedJobs.has(job.id)) {
       setMessage("Already applied!");
       setTimeout(() => setMessage(""), 2000);
@@ -248,8 +184,7 @@ export default function Dashboard() {
       if (update) update();
     } else {
       const data = await res.json();
-      setMessage(data.error);
-      if (data.error && data.error.includes("limit")) setShowPaymentPopup(true);
+      setMessage(data.error || "Failed to apply");
       setTimeout(() => setMessage(""), 3000);
     }
   };
@@ -261,11 +196,20 @@ export default function Dashboard() {
     const formData = new FormData();
     formData.append("cv", file);
     
-    const locationToSend = locationPermission && userLocation !== "India" ? userLocation : "";
-    formData.append("location", locationToSend);
-    if (userCoords) {
-      formData.append("latitude", userCoords.lat.toString());
-      formData.append("longitude", userCoords.lng.toString());
+    let finalLocation = userLocation;
+    let finalLat = userCoords?.lat;
+    let finalLng = userCoords?.lng;
+
+    if (!locationPermission && manualLocation.trim() !== "") {
+      finalLocation = manualLocation.trim();
+      finalLat = undefined;
+      finalLng = undefined;
+    }
+    
+    formData.append("location", finalLocation || "India");
+    if (finalLat && finalLng) {
+      formData.append("latitude", finalLat.toString());
+      formData.append("longitude", finalLng.toString());
     }
 
     try {
@@ -288,7 +232,12 @@ export default function Dashboard() {
         setSkills(data.keySkills || []);
         setJobs(data.matchedJobs || []);
         setAppliedJobs(new Set());
-        setMessage(data.message || `${data.matchedJobs?.length || 0} tech jobs found within 70km!`);
+        
+        const radiusMsg = (finalLat && finalLng) || (finalLocation && finalLocation !== "India") 
+          ? `within 70km of ${finalLocation}` 
+          : "in India";
+          
+        setMessage(`${data.matchedJobs?.length || 0} tech jobs found ${radiusMsg}!`);
       } else {
         setMessage(data.error || "Upload failed");
       }
@@ -341,7 +290,6 @@ export default function Dashboard() {
 
   return (
     <div style={styles.container}>
-      {/* 3D Background */}
       <div style={styles.bgContainer}>
         <div style={styles.bgGradient}></div>
         <div style={styles.floatingLogos}>
@@ -370,7 +318,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Navbar */}
       <nav style={styles.navbar}>
         <div style={styles.navContent}>
           <div style={styles.logo}>
@@ -379,7 +326,6 @@ export default function Dashboard() {
           </div>
           <div style={styles.navLinks}>
             <a href="/dashboard" style={{ ...styles.navLink, ...styles.activeNavLink }}>Dashboard</a>
-            <a href="/jobs" style={styles.navLink}>Browse</a>
             {session && (
               <button onClick={() => router.push("/api/auth/signout")} style={styles.logoutBtn}>
                 Logout
@@ -409,25 +355,38 @@ export default function Dashboard() {
 
               {!locationPermission ? (
                 <div style={styles.locationPrompt}>
-                  <span style={styles.locationPromptText}>📍 Allow location for <strong>70km radius</strong> jobs</span>
-                  <button 
-                    onClick={() => {
-                      if ("geolocation" in navigator) {
-                        navigator.geolocation.getCurrentPosition(
-                          () => {},
-                          () => {},
-                          { enableHighAccuracy: true }
-                        );
-                      }
-                    }} 
-                    style={styles.locationAllowBtn}
-                  >
-                    Allow Location
-                  </button>
+                  <span style={styles.locationPromptText}>📍 Allow location or enter city for <strong>70km radius</strong> jobs</span>
+                  <div style={styles.locationInputRow}>
+                    <button 
+                      onClick={() => {
+                        if ("geolocation" in navigator) {
+                          navigator.geolocation.getCurrentPosition(
+                            () => window.location.reload(),
+                            () => {},
+                            { enableHighAccuracy: true }
+                          );
+                        }
+                      }} 
+                      style={styles.locationAllowBtn}
+                    >
+                      Allow Location
+                    </button>
+                    <input 
+                      type="text" 
+                      placeholder="Or type city (e.g., Pune)" 
+                      value={manualLocation}
+                      onChange={(e) => setManualLocation(e.target.value)}
+                      style={styles.manualLocationInput}
+                    />
+                  </div>
                 </div>
               ) : userLocation && userLocation !== "India" ? (
-                <div style={styles.locationBadge}>📍 {userLocation} · 70km radius</div>
-              ) : null}
+                <div style={styles.locationBadge}>📍 {userLocation} · 70km radius active</div>
+              ) : (
+                <div style={{...styles.locationBadge, background: "rgba(251, 191, 36, 0.08)", color: "#fbbf24", borderColor: "rgba(251, 191, 36, 0.12)"}}>
+                   Default: India (Enable location for 70km radius)
+                </div>
+              )}
 
               <div 
                 style={{
@@ -521,7 +480,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* In-Feed Ad */}
           <div style={styles.inFeedAd}>
             <p style={styles.adLabel}>— Sponsored —</p>
             <AdUnit 
@@ -568,7 +526,7 @@ export default function Dashboard() {
                       <p style={styles.jobLocation}>📍 {job.location}</p>
                     )}
                     {job.distance && job.distance !== null && (
-                      <p style={styles.jobDistance}>📏 {typeof job.distance === 'number' ? job.distance.toFixed(1) : job.distance} km</p>
+                      <p style={styles.jobDistance}>📏 {typeof job.distance === 'number' ? job.distance.toFixed(1) : job.distance} km away</p>
                     )}
                     {job.matchingSkills && job.matchingSkills.length > 0 && (
                       <div style={styles.matchingSkills}>
@@ -598,7 +556,7 @@ export default function Dashboard() {
               <div style={styles.emptyIcon}>📄</div>
               <h3 style={styles.emptyTitle}>Upload your CV to get started</h3>
               <p style={styles.emptyDesc}>
-                AI scans your resume and finds <strong>7-day fresh</strong> tech jobs near you.
+                AI scans your resume and finds <strong>7-day fresh</strong> tech jobs within <strong>70km</strong> of your location.
               </p>
               <div style={styles.emptyFeatures}>
                 <span>AI Matching</span>
@@ -609,7 +567,6 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* ✅ Sidebar Ads */}
         <div style={styles.sidebar}>
           <div style={styles.adContainer}>
             <p style={styles.adLabel}>— Sponsored —</p>
@@ -647,11 +604,11 @@ const styles: { [key: string]: React.CSSProperties } = {
   container: {
     minHeight: "100vh",
     background: "#0f172a",
-    position: "relative" as const,
+    position: "relative",
     overflow: "hidden",
   },
   bgContainer: {
-    position: "fixed" as const,
+    position: "fixed",
     top: 0,
     left: 0,
     right: 0,
@@ -661,7 +618,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     overflow: "hidden",
   },
   bgGradient: {
-    position: "absolute" as const,
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
@@ -674,7 +631,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     animation: "bgShift 20s ease-in-out infinite alternate",
   },
   floatingLogos: {
-    position: "absolute" as const,
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
@@ -682,7 +639,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     pointerEvents: "none",
   },
   floatingLogo: {
-    position: "absolute" as const,
+    position: "absolute",
     width: 60,
     height: 60,
     borderRadius: "50%",
@@ -705,7 +662,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   loadingContainer: {
     display: "flex",
-    flexDirection: "column" as const,
+    flexDirection: "column",
     justifyContent: "center",
     alignItems: "center",
     height: "100vh",
@@ -731,13 +688,12 @@ const styles: { [key: string]: React.CSSProperties } = {
     marginRight: 8,
   },
   navbar: {
-    position: "relative" as const,
+    position: "sticky",
     zIndex: 10,
     background: "rgba(15, 23, 42, 0.5)",
     backdropFilter: "blur(30px)",
     padding: "12px 16px",
     borderBottom: "1px solid rgba(255,255,255,0.04)",
-    position: "sticky" as const,
     top: 0,
   },
   navContent: {
@@ -778,14 +734,14 @@ const styles: { [key: string]: React.CSSProperties } = {
     transition: "color 0.3s",
   },
   heroSection: {
-    position: "relative" as const,
+    position: "relative",
     zIndex: 5,
     padding: "30px 12px 40px",
   },
   heroContent: {
     maxWidth: 700,
     margin: "0 auto",
-    textAlign: "center" as const,
+    textAlign: "center",
   },
   badge: {
     display: "inline-flex",
@@ -799,7 +755,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: 10,
     fontWeight: 600,
     marginBottom: 16,
-    textTransform: "uppercase" as const,
+    textTransform: "uppercase",
     letterSpacing: 0.8,
   },
   badgeDot: {
@@ -833,48 +789,66 @@ const styles: { [key: string]: React.CSSProperties } = {
     background: "rgba(251, 191, 36, 0.08)",
     border: "1px solid rgba(251, 191, 36, 0.15)",
     borderRadius: 12,
-    padding: "10px 14px",
+    padding: "12px 16px",
     marginBottom: 16,
     display: "flex",
-    justifyContent: "space-between",
+    flexDirection: "column",
     alignItems: "center",
-    flexWrap: "wrap" as const,
     gap: 8,
   },
   locationPromptText: {
     color: "#fbbf24",
-    fontSize: 12,
-    fontWeight: 500,
+    fontSize: 13,
+    fontWeight: 600,
+    textAlign: "center",
+  },
+  locationInputRow: {
+    display: "flex",
+    gap: 8,
+    width: "100%",
   },
   locationAllowBtn: {
     background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
     color: "white",
     border: "none",
-    padding: "6px 14px",
+    padding: "8px 16px",
     borderRadius: 8,
     fontSize: 12,
     fontWeight: 600,
     cursor: "pointer",
     transition: "all 0.2s",
+    whiteSpace: "nowrap",
+  },
+  manualLocationInput: {
+    flex: 1,
+    background: "rgba(255,255,255,0.05)",
+    border: "1px solid rgba(255,255,255,0.1)",
+    borderRadius: 8,
+    padding: "8px 12px",
+    color: "white",
+    fontSize: 12,
+    outline: "none",
   },
   locationBadge: {
-    color: "#34d399",
-    fontSize: 12,
-    fontWeight: 500,
-    background: "rgba(52, 211, 153, 0.08)",
-    border: "1px solid rgba(52, 211, 153, 0.12)",
-    padding: "4px 16px",
-    borderRadius: 20,
-    display: "inline-block",
-    marginBottom: 16,
-  },
+  color: "#34d399",
+  fontSize: 12,
+  fontWeight: 600,
+  background: "rgba(52, 211, 153, 0.08)",
+  borderWidth: 1,
+  borderStyle: "solid",
+  borderColor: "rgba(52, 211, 153, 0.12)",  // ← separate properties
+  padding: "6px 16px",
+  borderRadius: 20,
+  display: "inline-block",
+  marginBottom: 16,
+},
   uploadHero: {
     background: "rgba(255,255,255,0.02)",
     backdropFilter: "blur(20px)",
     border: "1px solid rgba(255,255,255,0.05)",
     borderRadius: 20,
     padding: "20px 16px",
-    textAlign: "center" as const,
+    textAlign: "center",
     marginBottom: 20,
     transition: "all 0.4s",
   },
@@ -903,7 +877,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: "flex",
     gap: 10,
     justifyContent: "center",
-    flexWrap: "wrap" as const,
+    flexWrap: "wrap",
   },
   uploadBrowse: {
     background: "rgba(255,255,255,0.04)",
@@ -942,7 +916,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     marginTop: 16,
     paddingTop: 16,
     borderTop: "1px solid rgba(255,255,255,0.04)",
-    flexWrap: "wrap" as const,
+    flexWrap: "wrap",
   },
   featureItem: {
     display: "flex",
@@ -975,7 +949,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: 11,
     color: "rgba(255,255,255,0.35)",
     marginBottom: 10,
-    textAlign: "center" as const,
+    textAlign: "center",
   },
   scrollContainer: {
     display: "flex",
@@ -1000,13 +974,13 @@ const styles: { [key: string]: React.CSSProperties } = {
   companyGrid: {
     display: "flex",
     gap: 10,
-    overflowX: "auto" as const,
-    overflowY: "hidden" as const,
+    overflowX: "auto",
+    overflowY: "hidden",
     scrollBehavior: "smooth",
     padding: "4px 2px",
     flex: 1,
     msOverflowStyle: "none",
-    scrollbarWidth: "thin" as const,
+    scrollbarWidth: "thin",
   },
   companyLogo: {
     width: 38,
@@ -1016,7 +990,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    position: "relative" as const,
+    position: "relative",
     cursor: "pointer",
     border: "1px solid rgba(255,255,255,0.03)",
     padding: 4,
@@ -1026,10 +1000,10 @@ const styles: { [key: string]: React.CSSProperties } = {
   companyLogoImg: {
     width: "100%",
     height: "100%",
-    objectFit: "contain" as const,
+    objectFit: "contain",
   },
   companyTooltip: {
-    position: "absolute" as const,
+    position: "absolute",
     bottom: -24,
     left: "50%",
     transform: "translateX(-50%)",
@@ -1039,15 +1013,15 @@ const styles: { [key: string]: React.CSSProperties } = {
     borderRadius: 4,
     fontSize: 8,
     fontWeight: 500,
-    whiteSpace: "nowrap" as const,
+    whiteSpace: "nowrap",
     opacity: 0,
     transition: "opacity 0.3s",
-    pointerEvents: "none" as const,
+    pointerEvents: "none",
     zIndex: 10,
   },
   mainLayout: {
     display: "flex",
-    flexDirection: "column" as const,
+    flexDirection: "column",
     gap: 16,
     maxWidth: 1200,
     margin: "0 auto",
@@ -1064,7 +1038,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   sidebar: {
     display: "flex",
-    flexDirection: "column" as const,
+    flexDirection: "column",
     gap: 12,
     padding: "0 4px",
   },
@@ -1078,10 +1052,10 @@ const styles: { [key: string]: React.CSSProperties } = {
   adLabel: {
     fontSize: 9,
     color: "rgba(255,255,255,0.15)",
-    textTransform: "uppercase" as const,
+    textTransform: "uppercase",
     letterSpacing: 0.5,
     marginBottom: 4,
-    textAlign: "center" as const,
+    textAlign: "center",
   },
   sponsoredCard: {
     background: "linear-gradient(135deg, rgba(245,158,11,0.06), rgba(245,158,11,0.02))",
@@ -1094,7 +1068,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: 9,
     fontWeight: 700,
     color: "#f59e0b",
-    textTransform: "uppercase" as const,
+    textTransform: "uppercase",
     marginBottom: 4,
     opacity: 0.7,
     letterSpacing: 0.5,
@@ -1118,7 +1092,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     textDecoration: "underline",
   },
   messageToast: {
-    position: "relative" as const,
+    position: "relative",
     zIndex: 5,
     background: "rgba(30,41,59,0.8)",
     backdropFilter: "blur(10px)",
@@ -1126,12 +1100,12 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: "10px 16px",
     borderRadius: 10,
     margin: "12px 0",
-    textAlign: "center" as const,
+    textAlign: "center",
     fontSize: 13,
     border: "1px solid rgba(255,255,255,0.03)",
   },
   skillsCard: {
-    position: "relative" as const,
+    position: "relative",
     zIndex: 5,
     background: "rgba(255,255,255,0.02)",
     backdropFilter: "blur(10px)",
@@ -1150,7 +1124,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   skillsContainer: {
     display: "flex",
     gap: 8,
-    flexWrap: "wrap" as const,
+    flexWrap: "wrap",
   },
   skillTag: {
     background: "linear-gradient(135deg, rgba(37,99,235,0.12), rgba(124,58,237,0.06))",
@@ -1162,7 +1136,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     border: "1px solid rgba(37,99,235,0.06)",
   },
   jobsSection: {
-    position: "relative" as const,
+    position: "relative",
     zIndex: 5,
     maxWidth: 1200,
     margin: "0 auto",
@@ -1216,13 +1190,13 @@ const styles: { [key: string]: React.CSSProperties } = {
   jobDistance: {
     color: "#6366f1",
     fontSize: 11,
-    fontWeight: 500,
+    fontWeight: 600,
     marginBottom: 8,
   },
   matchingSkills: {
     display: "flex",
     gap: 6,
-    flexWrap: "wrap" as const,
+    flexWrap: "wrap",
     marginBottom: 10,
   },
   smallSkillTag: {
@@ -1253,13 +1227,13 @@ const styles: { [key: string]: React.CSSProperties } = {
     boxShadow: "none",
   },
   emptyState: {
-    position: "relative" as const,
+    position: "relative",
     zIndex: 5,
     background: "rgba(255,255,255,0.02)",
     backdropFilter: "blur(10px)",
     borderRadius: 14,
     padding: 30,
-    textAlign: "center" as const,
+    textAlign: "center",
     margin: "12px 0 30px",
     border: "1px solid rgba(255,255,255,0.03)",
   },
@@ -1281,7 +1255,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: "flex",
     gap: 10,
     justifyContent: "center",
-    flexWrap: "wrap" as const,
+    flexWrap: "wrap",
   },
 };
 
@@ -1343,6 +1317,9 @@ if (typeof document !== 'undefined') {
       .adContainer {
         min-height: 150px !important;
       }
+      .locationInputRow {
+        flex-direction: column !important;
+      }
     }
     [class*="companyLogo"]:hover {
       transform: translateY(-2px);
@@ -1378,9 +1355,6 @@ if (typeof document !== 'undefined') {
       border-color: #2563eb !important;
       outline: none;
     }
-    [class*="locationRequest"]:hover {
-      background: rgba(251, 191, 36, 0.1);
-    }
     [class*="logoutBtn"]:hover {
       color: rgba(239, 68, 68, 0.8);
     }
@@ -1389,13 +1363,6 @@ if (typeof document !== 'undefined') {
     }
     [class*="scrollBtn"]:hover {
       background: rgba(255,255,255,0.06);
-    }
-    [class*="payBtn"]:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 40px rgba(37,99,235,0.25);
-    }
-    [class*="cancelBtn"]:hover {
-      background: rgba(255,255,255,0.08);
     }
     [class*="applyBtn"]:hover:not(:disabled) {
       transform: translateY(-2px);

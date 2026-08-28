@@ -1,88 +1,70 @@
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "../auth/[...nextauth]/route";
-import { prisma } from "@/lib/prisma";
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function POST(req: Request) {
+// In-memory storage for tracking applications (no database needed)
+const appliedJobs = new Map<string, {
+  jobId: string;
+  jobData: any;
+  appliedAt: string;
+}>();
+
+export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    console.log('📝 Apply Job API called');
     
-    // Better session check
-    if (!session || !session.user || !session.user.email) {
-      return NextResponse.json({ error: "Unauthorized - Please login" }, { status: 401 });
-    }
-
-    const { jobId, jobData } = await req.json();
+    const body = await req.json();
+    const { jobId, jobData } = body;
 
     if (!jobId || !jobData) {
-      return NextResponse.json({ error: "Missing job data" }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Missing jobId or jobData' },
+        { status: 400 }
+      );
     }
 
-    // Get user from database using email
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
+    console.log(' Applying to job:', jobData.title);
+    console.log('📝 Company:', jobData.company);
+    console.log(' Job URL:', jobData.url);
+
+    // Store application in memory
+    appliedJobs.set(jobId, {
+      jobId,
+      jobData,
+      appliedAt: new Date().toISOString()
     });
 
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
+    console.log('✅ Application recorded for:', jobId);
 
-    const userId = user.id;
-
-    // Check if already applied
-    const existingApplication = await prisma.jobApplication.findFirst({
-      where: {
-        userId: userId,
-        jobId: jobId
-      }
+    return NextResponse.json({
+      success: true,
+      message: 'Application successful',
+      jobId,
+      redirectUrl: jobData.url
     });
 
-    if (existingApplication) {
-      return NextResponse.json({ error: "Already applied to this job" }, { status: 400 });
-    }
-
-    // Get or create job
-    let job = await prisma.job.findFirst({
-      where: { externalId: jobId }
-    });
-
-    if (!job) {
-      job = await prisma.job.create({
-        data: {
-          externalId: jobId,
-          title: jobData.title || "Unknown Position",
-          company: jobData.company || "Unknown Company",
-          description: "",
-          location: jobData.location || "",
-          applyUrl: jobData.url || jobData.applyUrl || "#",
-          postedDate: new Date(),
-          skills: JSON.stringify(jobData.matchingSkills || [])
-        }
-      });
-    }
-
-    // Create application record - FIXED
-    await prisma.jobApplication.create({
-      data: {
-        userId: userId,
-        jobId: job.id
-      }
-    });
-
-    // Increment apply count
-    await prisma.user.update({
-      where: { id: userId },
-      data: { applyCount: { increment: 1 } }
-    });
-
-    return NextResponse.json({ 
-      success: true, 
-      limitReached: true,
-      message: "Apply successful" 
-    });
-    
   } catch (error) {
-    console.error("Apply error:", error);
-    return NextResponse.json({ error: "Failed to apply. Please try again." }, { status: 500 });
+    console.error(' Apply Job Error:', error);
+    return NextResponse.json(
+      { error: 'Failed to apply' },
+      { status: 500 }
+    );
+  }
+}
+
+// GET endpoint to check applied jobs (optional)
+export async function GET(req: NextRequest) {
+  try {
+    const appliedJobsList = Array.from(appliedJobs.values());
+    
+    return NextResponse.json({
+      success: true,
+      appliedJobs: appliedJobsList,
+      count: appliedJobsList.length
+    });
+  } catch (error) {
+    console.error('❌ Get Applied Jobs Error:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch applied jobs' },
+      { status: 500 }
+    );
   }
 }
