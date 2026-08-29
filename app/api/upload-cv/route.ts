@@ -296,7 +296,7 @@ async function getNearbyCities(lat: number, lon: number, radiusKm: number = 70):
   return nearbyCities;
 }
 
-// ==================== POST API (SEARCH ALL CITIES) ====================
+// ==================== POST API (FIXED DISTANCE CALCULATION & BACKEND GEOCODING) ====================
 export async function POST(req: NextRequest) {
   try {
     console.log("📄 OpenRouter-Based Deep CV Analysis with 70km Radius...");
@@ -334,18 +334,29 @@ export async function POST(req: NextRequest) {
     let userCoords = null;
     let searchLocations: string[] = [];
     
-    if (userLat && userLng) {
+    // 1. Try to use coordinates sent from frontend (check for "null" string too)
+    if (userLat && userLng && userLat !== "null" && userLng !== "null") {
       userCoords = {
         lat: parseFloat(userLat),
         lon: parseFloat(userLng)
       };
-      
-      // ✅ Get ALL nearby cities within 70km
+    } 
+    // 2. Fallback: If frontend sent null, geocode the city name on the backend!
+    else if (userLocation && userLocation !== "India" && userLocation !== "") {
+      console.log("🔄 Frontend coords missing. Geocoding location on backend:", userLocation);
+      const backendCoords = await getCoordinates(userLocation);
+      if (backendCoords) {
+        userCoords = backendCoords;
+      }
+    }
+
+    // 3. Determine search locations based on coordinates
+    if (userCoords) {
       searchLocations = await getNearbyCities(userCoords.lat, userCoords.lon, 70);
       console.log("🏙️ Nearby cities within 70km:", searchLocations);
       
       if (searchLocations.length === 0) {
-        searchLocations = ["India"]; // Fallback
+        searchLocations = ["India"];
       }
     } else if (userLocation && userLocation !== "India") {
       searchLocations = [userLocation];
@@ -370,7 +381,7 @@ export async function POST(req: NextRequest) {
     
     console.log("🔍 Final Search Terms:", searchTerms.slice(0, 10));
     
-    // ==================== FETCH JOBS FROM ALL CITIES ====================
+    // ==================== FETCH JOBS ====================
     let allJobs: any[] = [];
     let totalJobsFound = 0;
     
@@ -390,11 +401,11 @@ export async function POST(req: NextRequest) {
       }
     };
     
-    // ✅ SEARCH IN ALL CITIES (not just the first one)
+    // ✅ SEARCH IN ALL CITIES
     for (const location of searchLocations) {
       console.log(`\n🔍 Searching in ${location}...`);
       
-      for (const term of searchTerms.slice(0, 3)) { // Top 3 terms
+      for (const term of searchTerms.slice(0, 3)) {
         try {
           const url = `https://api.adzuna.com/v1/api/jobs/in/search/1?app_id=${APP_ID}&app_key=${API_KEY}&results_per_page=15&what=${encodeURIComponent(term)}&where=${encodeURIComponent(location)}&max_days_old=7&content-type=application/json`;
           
@@ -409,31 +420,37 @@ export async function POST(req: NextRequest) {
               for (const job of data.results) {
                 let jobCity = "";
                 let distance = null;
-                let isWithinRadius = true;
-                
+                let withinRadius = false;
+
                 if (job.location && job.location.display_name) {
                   const parts = job.location.display_name.split(',');
                   jobCity = parts[0]?.trim() || "";
                 }
                 
-                // Calculate distance if we have coords
-                if (userCoords && jobCity) {
+                // ✅ FIX: Only calculate distance if both user and job have coordinates
+                if (
+                  userCoords && 
+                  !isNaN(userCoords.lat) && !isNaN(userCoords.lon)
+                ) {
                   const jobCoords = await getCoordinates(jobCity);
                   if (jobCoords) {
                     distance = calculateDistance(
                       userCoords.lat, userCoords.lon,
                       jobCoords.lat, jobCoords.lon
                     );
-                    isWithinRadius = distance <= 70;
+                    withinRadius = distance <= 70;
                     
-                    if (isWithinRadius) {
+                    if (withinRadius) {
                       console.log(`    ✓ ${job.title} - ${jobCity}: ${distance.toFixed(1)}km (WITHIN 70km)`);
                     } else {
                       console.log(`    ✗ ${job.title} - ${jobCity}: ${distance.toFixed(1)}km (OUTSIDE 70km)`);
                     }
                   }
+                } else {
+                  // If no coordinates, include job but mark as not within radius
+                  withinRadius = false;
                 }
-                
+
                 allJobs.push({
                   id: `${job.id}_${term}_${location}`,
                   title: job.title || "Unknown",
@@ -450,7 +467,7 @@ export async function POST(req: NextRequest) {
                   primaryRole: aiAnalysis.primaryRole,
                   isTechJob: true,
                   distance: distance,
-                  withinRadius: isWithinRadius
+                  withinRadius: withinRadius
                 });
               }
             } else {
@@ -458,9 +475,10 @@ export async function POST(req: NextRequest) {
             }
           }
         } catch (err) {
-          console.error(`  Error fetching ${term} in ${location}:`, err);
+          const errorMessage = err instanceof Error ? err.message : String(err);
+          console.error(`Error fetching ${term} in ${location}:`, errorMessage);
         }
-        await new Promise(resolve => setTimeout(resolve, 300)); // Rate limiting
+        await new Promise(resolve => setTimeout(resolve, 300));
       }
     }
     
@@ -508,9 +526,7 @@ export async function POST(req: NextRequest) {
       withinRadiusCount,
       source: 'OpenRouter AI',
       location: searchLocations.join(', '),
-      message: filteredJobs.length > 0 
-        ? `✅ ${withinRadiusCount} jobs within 70km, ${filteredJobs.length - withinRadiusCount} nearby (total: ${filteredJobs.length})`
-        : `⚠️ No jobs found. Try different search terms.`
+      message: `${filteredJobs.length} jobs found${withinRadiusCount > 0 ? ` (${withinRadiusCount} within 70km)` : ''}`
     });
     
   } catch (error) {

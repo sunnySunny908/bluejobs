@@ -73,7 +73,6 @@ export default function Dashboard() {
   const [logoErrors, setLogoErrors] = useState<Set<string>>(new Set());
   const [isDragging, setIsDragging] = useState(false);
   
-  // ✅ 70KM RADIUS STATES
   const [userLocation, setUserLocation] = useState<string>("");
   const [locationPermission, setLocationPermission] = useState<boolean>(false);
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -161,7 +160,6 @@ export default function Dashboard() {
   }
 
   const handleApply = async (job: any) => {
-    // ✅ Removed apply limit check. Users can apply unlimited times.
     if (appliedJobs.has(job.id)) {
       setMessage("Already applied!");
       setTimeout(() => setMessage(""), 2000);
@@ -200,13 +198,28 @@ export default function Dashboard() {
     let finalLat = userCoords?.lat;
     let finalLng = userCoords?.lng;
 
+    // ✅ FIX: If manual location is provided, geocode it
     if (!locationPermission && manualLocation.trim() !== "") {
       finalLocation = manualLocation.trim();
-      finalLat = undefined;
-      finalLng = undefined;
+      
+      try {
+        const geoRes = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(finalLocation)}&limit=1`
+        );
+        const geoData = await geoRes.json();
+        if (geoData && geoData.length > 0) {
+          finalLat = parseFloat(geoData[0].lat);
+          finalLng = parseFloat(geoData[0].lon);
+          console.log("📍 Manual City Coords:", finalLat, finalLng);
+        }
+      } catch (error) {
+        console.error("Geocoding error for manual city:", error);
+      }
     }
     
     formData.append("location", finalLocation || "India");
+    
+    // ✅ Only append coordinates if they exist
     if (finalLat && finalLng) {
       formData.append("latitude", finalLat.toString());
       formData.append("longitude", finalLng.toString());
@@ -350,12 +363,12 @@ export default function Dashboard() {
               </h1>
               
               <p style={styles.heroSubtext}>
-                ⚡ AI scans your resume · <span style={{ color: "#f59e0b" }}>7-day fresh</span> jobs · 📍 70km radius
+                 AI scans your resume · <span style={{ color: "#f59e0b" }}>7-day fresh</span> jobs · 📍 70km radius
               </p>
 
               {!locationPermission ? (
                 <div style={styles.locationPrompt}>
-                  <span style={styles.locationPromptText}>📍 Allow location or enter city for <strong>70km radius</strong> jobs</span>
+                  <span style={styles.locationPromptText}> Allow location or enter city for <strong>70km radius</strong> jobs</span>
                   <div style={styles.locationInputRow}>
                     <button 
                       onClick={() => {
@@ -553,7 +566,7 @@ export default function Dashboard() {
 
           {jobs.length === 0 && !uploading && (
             <div style={styles.emptyState}>
-              <div style={styles.emptyIcon}>📄</div>
+              <div style={styles.emptyIcon}></div>
               <h3 style={styles.emptyTitle}>Upload your CV to get started</h3>
               <p style={styles.emptyDesc}>
                 AI scans your resume and finds <strong>7-day fresh</strong> tech jobs within <strong>70km</strong> of your location.
@@ -830,18 +843,16 @@ const styles: { [key: string]: React.CSSProperties } = {
     outline: "none",
   },
   locationBadge: {
-  color: "#34d399",
-  fontSize: 12,
-  fontWeight: 600,
-  background: "rgba(52, 211, 153, 0.08)",
-  borderWidth: 1,
-  borderStyle: "solid",
-  borderColor: "rgba(52, 211, 153, 0.12)",  // ← separate properties
-  padding: "6px 16px",
-  borderRadius: 20,
-  display: "inline-block",
-  marginBottom: 16,
-},
+    color: "#34d399",
+    fontSize: 12,
+    fontWeight: 600,
+    background: "rgba(52, 211, 153, 0.08)",
+    border: "1px solid rgba(52, 211, 153, 0.12)",
+    padding: "6px 16px",
+    borderRadius: 20,
+    display: "inline-block",
+    marginBottom: 16,
+  },
   uploadHero: {
     background: "rgba(255,255,255,0.02)",
     backdropFilter: "blur(20px)",
