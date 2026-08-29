@@ -23,30 +23,38 @@ function extractJsonFromText(text: string): any {
   throw new Error("No valid JSON found in AI response");
 }
 
-// ==================== READ FILE CONTENT ====================
+// ==================== READ FILE CONTENT (BULLETPROOF) ====================
 async function readFileContent(file: File): Promise<string> {
   const buffer = Buffer.from(await file.arrayBuffer());
+  const fileName = file.name.toLowerCase(); // ✅ Case-insensitive check
   
-  if (file.name.endsWith('.txt')) {
-    return buffer.toString('utf-8');
-  }
-  
-  if (file.name.endsWith('.docx')) {
+  // 1. Handle .docx
+  if (fileName.endsWith('.docx')) {
     try {
       const result = await mammoth.extractRawText({ buffer: buffer });
-      return result.value || "";
+      const text = result.value || "";
+      if (text.trim().length > 0) {
+        return text;
+      }
+      throw new Error("Mammoth extracted empty text from DOCX");
     } catch (e) {
       console.error("Mammoth error:", e);
-      return "";
+      throw new Error("Failed to parse .docx file. It might be corrupted or password-protected. Please try saving it as a new .docx or .txt file.");
     }
   }
   
-  try {
+  // 2. Handle .txt
+  if (fileName.endsWith('.txt')) {
     return buffer.toString('utf-8');
-  } catch (e) {
-    console.error("File read error:", e);
-    return "";
   }
+
+  // 3. Explicitly reject PDFs (since we don't have a PDF parser loaded)
+  if (fileName.endsWith('.pdf')) {
+    throw new Error("PDF files are not supported yet. Please convert to .docx or .txt and try again.");
+  }
+
+  // 4. Fallback: Reject unknown formats to prevent binary garbage from reaching the AI
+  throw new Error(`Unsupported file format: '${file.name}'. Please upload a valid .docx or .txt file.`);
 }
 
 // ==================== DEEP CV ANALYSIS WITH OPENROUTER ====================
@@ -296,7 +304,7 @@ async function getNearbyCities(lat: number, lon: number, radiusKm: number = 70):
   return nearbyCities;
 }
 
-// ==================== POST API (FIXED DISTANCE CALCULATION & BACKEND GEOCODING) ====================
+// ==================== POST API ====================
 export async function POST(req: NextRequest) {
   try {
     console.log("📄 OpenRouter-Based Deep CV Analysis with 70km Radius...");
@@ -311,18 +319,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
     }
 
-    let cvText = await readFileContent(file);
-    
-    console.log("📄 File size:", cvText.length, "bytes");
-    console.log("📍 User Coords:", userLat, userLng);
-
-    // ✅ STRICT VALIDATION: Prevent empty/corrupted mobile uploads
-    if (!cvText || cvText.trim().length < 50) {
-      console.error("❌ Invalid CV content received from mobile. Length:", cvText?.length);
+    // ✅ CATCH FILE READ ERRORS EXPLICITLY
+    let cvText = "";
+    try {
+      cvText = await readFileContent(file);
+    } catch (readError: any) {
+      console.error("❌ File Read Error:", readError.message);
       return NextResponse.json({
         success: false,
         isTechCV: false,
-        message: "Could not read CV content. The file might be corrupted or empty. Please try a different format (PDF) or re-save the DOCX."
+        message: readError.message || "Could not read file content."
+      }, { status: 400 });
+    }
+    
+    console.log("📄 Extracted text size:", cvText.length, "bytes");
+    console.log("📍 User Coords:", userLat, userLng);
+
+    // ✅ STRICT VALIDATION: Prevent empty/corrupted uploads
+    if (!cvText || cvText.trim().length < 50) {
+      console.error("❌ Invalid CV content received. Length:", cvText?.length);
+      return NextResponse.json({
+        success: false,
+        isTechCV: false,
+        message: "Could not read CV content. The file might be corrupted or empty. Please try a different format or re-save the DOCX."
       }, { status: 400 });
     }
     
@@ -344,15 +363,12 @@ export async function POST(req: NextRequest) {
     let userCoords = null;
     let searchLocations: string[] = [];
     
-    // 1. Try to use coordinates sent from frontend (check for "null" string too)
     if (userLat && userLng && userLat !== "null" && userLng !== "null") {
       userCoords = {
         lat: parseFloat(userLat),
         lon: parseFloat(userLng)
       };
-    } 
-    // 2. Fallback: If frontend sent null, geocode the city name on the backend!
-    else if (userLocation && userLocation !== "India" && userLocation !== "") {
+    } else if (userLocation && userLocation !== "India" && userLocation !== "") {
       console.log("🔄 Frontend coords missing. Geocoding location on backend:", userLocation);
       const backendCoords = await getCoordinates(userLocation);
       if (backendCoords) {
@@ -360,11 +376,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 3. Determine search locations based on coordinates
     if (userCoords) {
       searchLocations = await getNearbyCities(userCoords.lat, userCoords.lon, 70);
       console.log("🏙️ Nearby cities within 70km:", searchLocations);
-      
       if (searchLocations.length === 0) {
         searchLocations = ["India"];
       }
@@ -376,19 +390,15 @@ export async function POST(req: NextRequest) {
     
     // ==================== BUILD SEARCH TERMS ====================
     let searchTerms = [...aiAnalysis.searchTerms];
-    
     if (!searchTerms.some(t => t.toLowerCase().includes(aiAnalysis.primaryRole.toLowerCase()))) {
       searchTerms.unshift(aiAnalysis.primaryRole);
     }
-    
     for (const role of aiAnalysis.secondaryRoles) {
       if (!searchTerms.some(t => t.toLowerCase().includes(role.toLowerCase()))) {
         searchTerms.push(role);
       }
     }
-    
     searchTerms = [...new Set(searchTerms.filter(term => term && term.trim().length > 0))];
-    
     console.log("🔍 Final Search Terms:", searchTerms.slice(0, 10));
     
     // ==================== FETCH JOBS ====================
@@ -411,14 +421,11 @@ export async function POST(req: NextRequest) {
       }
     };
     
-    // ✅ SEARCH IN ALL CITIES
     for (const location of searchLocations) {
       console.log(`\n🔍 Searching in ${location}...`);
-      
       for (const term of searchTerms.slice(0, 3)) {
         try {
           const url = `https://api.adzuna.com/v1/api/jobs/in/search/1?app_id=${APP_ID}&app_key=${API_KEY}&results_per_page=15&what=${encodeURIComponent(term)}&where=${encodeURIComponent(location)}&max_days_old=7&content-type=application/json`;
-          
           const response = await fetchWithTimeout(url, 15000);
           
           if (response.ok) {
@@ -437,19 +444,11 @@ export async function POST(req: NextRequest) {
                   jobCity = parts[0]?.trim() || "";
                 }
                 
-                // ✅ FIX: Only calculate distance if both user and job have coordinates
-                if (
-                  userCoords && 
-                  !isNaN(userCoords.lat) && !isNaN(userCoords.lon)
-                ) {
+                if (userCoords && !isNaN(userCoords.lat) && !isNaN(userCoords.lon)) {
                   const jobCoords = await getCoordinates(jobCity);
                   if (jobCoords) {
-                    distance = calculateDistance(
-                      userCoords.lat, userCoords.lon,
-                      jobCoords.lat, jobCoords.lon
-                    );
+                    distance = calculateDistance(userCoords.lat, userCoords.lon, jobCoords.lat, jobCoords.lon);
                     withinRadius = distance <= 70;
-                    
                     if (withinRadius) {
                       console.log(`    ✓ ${job.title} - ${jobCity}: ${distance.toFixed(1)}km (WITHIN 70km)`);
                     } else {
@@ -457,7 +456,6 @@ export async function POST(req: NextRequest) {
                     }
                   }
                 } else {
-                  // If no coordinates, include job but mark as not within radius
                   withinRadius = false;
                 }
 
@@ -494,7 +492,6 @@ export async function POST(req: NextRequest) {
     
     console.log(`\n📊 Total raw jobs found: ${totalJobsFound}`);
     
-    // ==================== FILTER & SORT ====================
     const seenUrls = new Set();
     const filteredJobs = allJobs
       .filter(job => {
@@ -509,7 +506,6 @@ export async function POST(req: NextRequest) {
         return diffDays <= 7;
       })
       .sort((a, b) => {
-        // Prioritize jobs within radius
         if (a.withinRadius && !b.withinRadius) return -1;
         if (!a.withinRadius && b.withinRadius) return 1;
         return b.matchPercentage - a.matchPercentage;
@@ -517,11 +513,9 @@ export async function POST(req: NextRequest) {
       .slice(0, 50);
     
     const withinRadiusCount = filteredJobs.filter(j => j.withinRadius).length;
-    
     console.log(`\n✅ ${filteredJobs.length} unique jobs`);
     console.log(`📍 Within 70km: ${withinRadiusCount}`);
     
-    // ✅ PREVENT MOBILE BROWSER CACHING
     const responseHeaders = new Headers();
     responseHeaders.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     responseHeaders.set('Pragma', 'no-cache');
