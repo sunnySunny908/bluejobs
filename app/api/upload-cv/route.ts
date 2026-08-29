@@ -315,6 +315,16 @@ export async function POST(req: NextRequest) {
     
     console.log("📄 File size:", cvText.length, "bytes");
     console.log("📍 User Coords:", userLat, userLng);
+
+    // ✅ STRICT VALIDATION: Prevent empty/corrupted mobile uploads
+    if (!cvText || cvText.trim().length < 50) {
+      console.error("❌ Invalid CV content received from mobile. Length:", cvText?.length);
+      return NextResponse.json({
+        success: false,
+        isTechCV: false,
+        message: "Could not read CV content. The file might be corrupted or empty. Please try a different format (PDF) or re-save the DOCX."
+      }, { status: 400 });
+    }
     
     // ==================== OPENROUTER ANALYSIS ====================
     const aiAnalysis = await analyzeCVWithOpenRouter(cvText);
@@ -511,6 +521,12 @@ export async function POST(req: NextRequest) {
     console.log(`\n✅ ${filteredJobs.length} unique jobs`);
     console.log(`📍 Within 70km: ${withinRadiusCount}`);
     
+    // ✅ PREVENT MOBILE BROWSER CACHING
+    const responseHeaders = new Headers();
+    responseHeaders.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    responseHeaders.set('Pragma', 'no-cache');
+    responseHeaders.set('Expires', '0');
+
     return NextResponse.json({
       success: true,
       isTechCV: true,
@@ -527,7 +543,7 @@ export async function POST(req: NextRequest) {
       source: 'OpenRouter AI',
       location: searchLocations.join(', '),
       message: `${filteredJobs.length} jobs found${withinRadiusCount > 0 ? ` (${withinRadiusCount} within 70km)` : ''}`
-    });
+    }, { headers: responseHeaders });
     
   } catch (error) {
     console.error('❌ Error:', error);

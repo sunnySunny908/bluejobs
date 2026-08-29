@@ -24,3 +24,6 @@ out/
 # IDE
 .vscode/
 .idea/
+.env
+.env.local
+all_in_one.txt

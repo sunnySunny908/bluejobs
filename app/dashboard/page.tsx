@@ -226,10 +226,17 @@ export default function Dashboard() {
     }
 
     try {
-      const res = await fetch("/api/upload-cv", { 
-        method: "POST", 
-        body: formData 
-      });
+      // ✅ FORCE CACHE BUSTING FOR MOBILE BROWSERS
+const timestamp = Date.now();
+const res = await fetch(`/api/upload-cv?t=${timestamp}`, { 
+  method: "POST", 
+  body: formData,
+  cache: "no-store", // Tells Next.js not to cache this request
+  headers: {
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "Pragma": "no-cache",
+  }
+});
       const data = await res.json();
 
       if (data.success === false && data.isTechCV === false) {
