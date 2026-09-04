@@ -100,7 +100,7 @@ export default function Dashboard() {
               const data = await fallbackRes.json();
               const city = data.city || data.principalSubdivision || "India";
               setUserLocation(city);
-              console.log("📍 User Location:", city);
+              console.log("User Location:", city);
               return;
             }
             
@@ -121,7 +121,7 @@ export default function Dashboard() {
               }
               if (city) {
                 setUserLocation(city);
-                console.log("📍 User Location (Nominatim):", city);
+                console.log("User Location (Nominatim):", city);
                 return;
               }
             }
@@ -136,7 +136,6 @@ export default function Dashboard() {
           console.log("Location permission denied:", error.message);
           setLocationPermission(false);
           setUserLocation("India");
-          setMessage("Location denied. Please enter your city manually for 70km radius jobs.");
         },
         {
           enableHighAccuracy: true,
@@ -146,7 +145,6 @@ export default function Dashboard() {
       );
     } else {
       setUserLocation("India");
-      setMessage("Geolocation not supported. Please enter your city manually.");
     }
   }, []);
 
@@ -187,6 +185,31 @@ export default function Dashboard() {
     }
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0] || null;
+    
+    if (selectedFile) {
+      const fileName = selectedFile.name.toLowerCase();
+      
+      if (fileName.endsWith('.pdf')) {
+        setMessage("PDF files are not supported. Please convert your CV to .doc or .docx format and try again.");
+        setFile(null);
+        setTimeout(() => setMessage(""), 5000);
+        return;
+      }
+      
+      if (!fileName.endsWith('.doc') && !fileName.endsWith('.docx')) {
+        setMessage("Only .doc or .docx files are accepted. Please upload a valid CV.");
+        setFile(null);
+        setTimeout(() => setMessage(""), 5000);
+        return;
+      }
+      
+      setFile(selectedFile);
+      setMessage("");
+    }
+  };
+
   const handleUpload = async () => {
     if (!file) return;
 
@@ -198,7 +221,6 @@ export default function Dashboard() {
     let finalLat = userCoords?.lat;
     let finalLng = userCoords?.lng;
 
-    // ✅ FIX: If manual location is provided, geocode it
     if (!locationPermission && manualLocation.trim() !== "") {
       finalLocation = manualLocation.trim();
       
@@ -210,7 +232,7 @@ export default function Dashboard() {
         if (geoData && geoData.length > 0) {
           finalLat = parseFloat(geoData[0].lat);
           finalLng = parseFloat(geoData[0].lon);
-          console.log("📍 Manual City Coords:", finalLat, finalLng);
+          console.log("Manual City Coords:", finalLat, finalLng);
         }
       } catch (error) {
         console.error("Geocoding error for manual city:", error);
@@ -219,28 +241,26 @@ export default function Dashboard() {
     
     formData.append("location", finalLocation || "India");
     
-    // ✅ Only append coordinates if they exist
     if (finalLat && finalLng) {
       formData.append("latitude", finalLat.toString());
       formData.append("longitude", finalLng.toString());
     }
 
     try {
-      // ✅ FORCE CACHE BUSTING FOR MOBILE BROWSERS
-const timestamp = Date.now();
-const res = await fetch(`/api/upload-cv?t=${timestamp}`, { 
-  method: "POST", 
-  body: formData,
-  cache: "no-store", // Tells Next.js not to cache this request
-  headers: {
-    "Cache-Control": "no-cache, no-store, must-revalidate",
-    "Pragma": "no-cache",
-  }
-});
+      const timestamp = Date.now();
+      const res = await fetch(`/api/upload-cv?t=${timestamp}`, { 
+        method: "POST", 
+        body: formData,
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Pragma": "no-cache",
+        }
+      });
       const data = await res.json();
 
-      if (data.success === false && data.isTechCV === false) {
-        setMessage(data.message || "Please upload a Tech/IT CV");
+      if (data.success === false) {
+        setMessage(data.message || "Upload failed. Please try again.");
         setSkills([]);
         setJobs([]);
         setAppliedJobs(new Set());
@@ -257,13 +277,13 @@ const res = await fetch(`/api/upload-cv?t=${timestamp}`, {
           ? `within 70km of ${finalLocation}` 
           : "in India";
           
-        setMessage(`${data.matchedJobs?.length || 0} tech jobs found ${radiusMsg}!`);
+        setMessage(`${data.matchedJobs?.length || 0} jobs found ${radiusMsg}!`);
       } else {
         setMessage(data.error || "Upload failed");
       }
     } catch (error) {
       console.error("Upload error:", error);
-      setMessage("Network error");
+      setMessage("Network error. Please try again.");
     } finally {
       setUploading(false);
     }
@@ -304,7 +324,21 @@ const res = await fetch(`/api/upload-cv?t=${timestamp}`, {
     setIsDragging(false);
     const files = e.dataTransfer.files;
     if (files.length > 0) {
-      setFile(files[0]);
+      const fileName = files[0].name.toLowerCase();
+      
+      if (fileName.endsWith('.pdf')) {
+        setMessage("PDF files are not supported. Please upload .doc or .docx format.");
+        setTimeout(() => setMessage(""), 5000);
+        return;
+      }
+      
+      if (fileName.endsWith('.doc') || fileName.endsWith('.docx')) {
+        setFile(files[0]);
+        setMessage("");
+      } else {
+        setMessage("Only .doc or .docx files are accepted.");
+        setTimeout(() => setMessage(""), 5000);
+      }
     }
   };
 
@@ -341,8 +375,9 @@ const res = await fetch(`/api/upload-cv?t=${timestamp}`, {
       <nav style={styles.navbar}>
         <div style={styles.navContent}>
           <div style={styles.logo}>
-            <span style={{ color: "#2563eb" }}>blue</span>
-            <span style={{ color: "#f59e0b" }}>jobs</span>
+            <span style={{ color: "#f59e0b" }}>job</span>
+            <span style={{ color: "#0b4df5" }}>switchers</span>
+            <span style={{ color: "#ffffff" }}>.com</span>
           </div>
           <div style={styles.navLinks}>
             <a href="/dashboard" style={{ ...styles.navLink, ...styles.activeNavLink }}>Dashboard</a>
@@ -366,16 +401,16 @@ const res = await fetch(`/api/upload-cv?t=${timestamp}`, {
               
               <h1 style={styles.heroTitle}>
                 Upload Your CV &<br />
-                <span style={styles.heroHighlight}>Get Matched in Seconds</span>
+                <span style={styles.heroHighlight}>AI match with relevant jobs</span>
               </h1>
               
               <p style={styles.heroSubtext}>
-                 AI scans your resume · <span style={{ color: "#f59e0b" }}>7-day fresh</span> jobs · 📍 70km radius
+                AI scans your resume · 7-day fresh jobs · 70km radius
               </p>
 
               {!locationPermission ? (
                 <div style={styles.locationPrompt}>
-                  <span style={styles.locationPromptText}> Allow location or enter city for <strong>70km radius</strong> jobs</span>
+                  <span style={styles.locationPromptText}>Allow location or enter city for 70km radius jobs</span>
                   <div style={styles.locationInputRow}>
                     <button 
                       onClick={() => {
@@ -401,10 +436,15 @@ const res = await fetch(`/api/upload-cv?t=${timestamp}`, {
                   </div>
                 </div>
               ) : userLocation && userLocation !== "India" ? (
-                <div style={styles.locationBadge}>📍 {userLocation} · 70km radius active</div>
+                <div style={styles.locationBadge}>{userLocation} · 70km radius active</div>
               ) : (
-                <div style={{...styles.locationBadge, background: "rgba(251, 191, 36, 0.08)", color: "#fbbf24", borderColor: "rgba(251, 191, 36, 0.12)"}}>
-                   Default: India (Enable location for 70km radius)
+                <div style={{
+                  ...styles.locationBadge,
+                  background: "rgba(251, 191, 36, 0.08)",
+                  color: "#fbbf24",
+                  border: "1px solid rgba(251, 191, 36, 0.12)"
+                }}>
+                  Default: India (Enable location for 70km radius)
                 </div>
               )}
 
@@ -422,7 +462,9 @@ const res = await fetch(`/api/upload-cv?t=${timestamp}`, {
                   {file ? file.name : "Drop your CV here"}
                 </h2>
                 <p style={styles.uploadSub}>
-                  {file ? `${(file.size / 1024).toFixed(0)} KB · Ready to upload` : "PDF, DOCX, TXT · Max 5MB"}
+                  {file 
+                    ? `${(file.size / 1024).toFixed(0)} KB · Ready to upload` 
+                    : "Please upload .doc or .docx files only (Max 5MB)\nPDF files are not supported"}
                 </p>
                 
                 <div style={styles.uploadActions}>
@@ -432,8 +474,8 @@ const res = await fetch(`/api/upload-cv?t=${timestamp}`, {
                   <input
                     type="file"
                     id="cv-upload-hero"
-                    accept=".pdf,.docx,.txt"
-                    onChange={(e) => setFile(e.target.files?.[0] || null)}
+                    accept=".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    onChange={handleFileChange}
                     style={{ display: "none" }}
                   />
                   <button
@@ -457,17 +499,14 @@ const res = await fetch(`/api/upload-cv?t=${timestamp}`, {
 
                 <div style={styles.features}>
                   <div style={styles.featureItem}>
-                    <span style={styles.featureIcon}>⚡</span>
                     <span style={styles.featureLabel}>AI Matching</span>
                   </div>
                   <div style={styles.featureDivider}></div>
                   <div style={styles.featureItem}>
-                    <span style={styles.featureIcon}>📅</span>
                     <span style={styles.featureLabel}>Last 7 Days</span>
                   </div>
                   <div style={styles.featureDivider}></div>
                   <div style={styles.featureItem}>
-                    <span style={styles.featureIcon}>📍</span>
                     <span style={styles.featureLabel}>70km Radius</span>
                   </div>
                 </div>
@@ -511,7 +550,15 @@ const res = await fetch(`/api/upload-cv?t=${timestamp}`, {
           </div>
 
           {message && (
-            <div style={styles.messageToast}>
+            <div style={{
+              ...styles.messageToast,
+              background: message.includes("PDF") || message.includes("not supported") || message.includes("not accepted")
+                ? "rgba(239, 68, 68, 0.15)" 
+                : "rgba(30,41,59,0.8)",
+              border: message.includes("PDF") || message.includes("not supported") || message.includes("not accepted")
+                ? "1px solid rgba(239, 68, 68, 0.3)"
+                : "1px solid rgba(255,255,255,0.03)"
+            }}>
               {message}
             </div>
           )}
@@ -543,10 +590,10 @@ const res = await fetch(`/api/upload-cv?t=${timestamp}`, {
                       </div>
                     </div>
                     {job.location && job.location !== "India" && (
-                      <p style={styles.jobLocation}>📍 {job.location}</p>
+                      <p style={styles.jobLocation}>{job.location}</p>
                     )}
                     {job.distance && job.distance !== null && (
-                      <p style={styles.jobDistance}>📏 {typeof job.distance === 'number' ? job.distance.toFixed(1) : job.distance} km away</p>
+                      <p style={styles.jobDistance}>{typeof job.distance === 'number' ? job.distance.toFixed(1) : job.distance} km away</p>
                     )}
                     {job.matchingSkills && job.matchingSkills.length > 0 && (
                       <div style={styles.matchingSkills}>
@@ -568,6 +615,32 @@ const res = await fetch(`/api/upload-cv?t=${timestamp}`, {
                   </div>
                 ))}
               </div>
+
+              {/* ✅ ADZUNA ATTRIBUTION ADDED HERE (Exact Location) */}
+              <div style={{ 
+                textAlign: "center", 
+                marginTop: 30, 
+                fontSize: 12, 
+                color: "rgba(255,255,255,0.5)",
+                padding: "20px 0",
+                borderTop: "1px solid rgba(255,255,255,0.05)"
+              }}>
+                Jobs powered by{" "}
+                <a 
+                  href="https://www.adzuna.co.in" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  style={{ 
+                    color: "#f59e0b", 
+                    textDecoration: "none", 
+                    fontWeight: 600,
+                    borderBottom: "1px solid #f59e0b"
+                  }}
+                >
+                  Adzuna
+                </a>
+              </div>
+
             </div>
           )}
 
@@ -576,7 +649,7 @@ const res = await fetch(`/api/upload-cv?t=${timestamp}`, {
               <div style={styles.emptyIcon}></div>
               <h3 style={styles.emptyTitle}>Upload your CV to get started</h3>
               <p style={styles.emptyDesc}>
-                AI scans your resume and finds <strong>7-day fresh</strong> tech jobs within <strong>70km</strong> of your location.
+                AI scans your resume and finds 7-day fresh jobs within 70km of your location.
               </p>
               <div style={styles.emptyFeatures}>
                 <span>AI Matching</span>
@@ -609,10 +682,10 @@ const res = await fetch(`/api/upload-cv?t=${timestamp}`, {
           </div>
 
           <div style={styles.sponsoredCard}>
-            <div style={styles.sponsoredBadge}>⭐ Sponsored</div>
+            <div style={styles.sponsoredBadge}>Sponsored</div>
             <h4 style={styles.sponsoredTitle}>Senior Developer</h4>
             <p style={styles.sponsoredCompany}>Google</p>
-            <p style={styles.sponsoredCta}>Apply Now →</p>
+            <p style={styles.sponsoredCta}>Apply Now</p>
           </div>
         </div>
       </div>
@@ -887,9 +960,10 @@ const styles: { [key: string]: React.CSSProperties } = {
     marginBottom: 4,
   },
   uploadSub: {
-    fontSize: 12,
-    color: "rgba(255,255,255,0.35)",
-    marginBottom: 16,
+    fontSize: 9,
+    color: "rgba(255, 255, 255, 1)",
+    marginBottom: 13,
+    whiteSpace: "pre-line",
   },
   uploadActions: {
     display: "flex",
@@ -907,6 +981,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     cursor: "pointer",
     border: "1px solid rgba(255,255,255,0.04)",
     transition: "all 0.3s",
+    animation: "glow 2s ease-in-out infinite",
+    boxShadow: "0 0 15px rgba(37, 99, 235, 0.3)",
   },
   uploadBtn: {
     background: "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)",
@@ -940,10 +1016,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: "flex",
     alignItems: "center",
     gap: 6,
-  },
-  featureIcon: {
-    fontSize: 14,
-    opacity: 0.6,
   },
   featureLabel: {
     fontSize: 11,
@@ -1112,15 +1184,12 @@ const styles: { [key: string]: React.CSSProperties } = {
   messageToast: {
     position: "relative",
     zIndex: 5,
-    background: "rgba(30,41,59,0.8)",
-    backdropFilter: "blur(10px)",
     color: "white",
     padding: "10px 16px",
     borderRadius: 10,
     margin: "12px 0",
     textAlign: "center",
     fontSize: 13,
-    border: "1px solid rgba(255,255,255,0.03)",
   },
   skillsCard: {
     position: "relative",
@@ -1288,6 +1357,10 @@ if (typeof document !== 'undefined') {
       0%, 100% { opacity: 0.5; }
       50% { opacity: 1; }
     }
+    @keyframes glow {
+      0%, 100% { box-shadow: 0 0 5px rgba(37, 99, 235, 0.3), 0 0 10px rgba(37, 99, 235, 0.1); }
+      50% { box-shadow: 0 0 20px rgba(37, 99, 235, 0.6), 0 0 30px rgba(37, 99, 235, 0.3); }
+    }
     @keyframes floatLogo {
       0% { transform: translate(0, 0) rotate(0deg) scale(1); }
       25% { transform: translate(30px, -20px) rotate(5deg) scale(1.1); }
@@ -1391,6 +1464,9 @@ if (typeof document !== 'undefined') {
     }
     [class*="floatingLogo"]:nth-child(even) {
       animation-duration: 18s;
+    }
+    [class*="footerLink"]:hover {
+      color: rgba(255,255,255,0.8) !important;
     }
   `;
   document.head.appendChild(style);

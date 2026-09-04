@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Footer from "@/components/Footer"; // ✅ Already imported!
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Script from "next/script";
@@ -10,8 +11,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "bluejobs",
-  description: "AI-powered job matching platform",
+  title: "JobSwitchers - AI Finds Your Perfect Job in 60 Seconds", // ✅ Bas yahan capitalization improve ki
+  description: "AI-powered job matching platform. Upload your CV and get matched with 7-day fresh jobs.",
 };
 
 export default function RootLayout({
@@ -33,6 +34,10 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <Providers>{children}</Providers>
+        
+        {/* ✅ Footer yahan add kiya hai - Yeh automatically har page par dikhega */}
+        <Footer />
+        
       </body>
     </html>
   );

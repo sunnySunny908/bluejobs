@@ -23,38 +23,36 @@ function extractJsonFromText(text: string): any {
   throw new Error("No valid JSON found in AI response");
 }
 
-// ==================== READ FILE CONTENT (BULLETPROOF) ====================
+// ==================== READ FILE CONTENT (STRICT .DOC/.DOCX ONLY) ====================
 async function readFileContent(file: File): Promise<string> {
   const buffer = Buffer.from(await file.arrayBuffer());
-  const fileName = file.name.toLowerCase(); // ✅ Case-insensitive check
+  const fileName = file.name.toLowerCase();
   
-  // 1. Handle .docx
-  if (fileName.endsWith('.docx')) {
+  // 1. Explicitly reject PDFs with a helpful message
+  if (fileName.endsWith('.pdf')) {
+    throw new Error("PDF files are currently not supported. Please convert your CV to .doc or .docx format and try again.");
+  }
+
+  // 2. Handle DOCX and legacy DOC
+  if (fileName.endsWith('.docx') || fileName.endsWith('.doc')) {
     try {
       const result = await mammoth.extractRawText({ buffer: buffer });
       const text = result.value || "";
-      if (text.trim().length > 0) {
-        return text;
-      }
-      throw new Error("Mammoth extracted empty text from DOCX");
+      if (text.trim().length > 0) return text;
+      throw new Error("Extracted text is empty. Please ensure the document is not corrupted.");
     } catch (e) {
       console.error("Mammoth error:", e);
-      throw new Error("Failed to parse .docx file. It might be corrupted or password-protected. Please try saving it as a new .docx or .txt file.");
+      throw new Error("Failed to parse Word document. Please try saving it as a standard .docx file.");
     }
   }
   
-  // 2. Handle .txt
+  // 3. Handle TXT (as a safe fallback)
   if (fileName.endsWith('.txt')) {
     return buffer.toString('utf-8');
   }
 
-  // 3. Explicitly reject PDFs (since we don't have a PDF parser loaded)
-  if (fileName.endsWith('.pdf')) {
-    throw new Error("PDF files are not supported yet. Please convert to .docx or .txt and try again.");
-  }
-
-  // 4. Fallback: Reject unknown formats to prevent binary garbage from reaching the AI
-  throw new Error(`Unsupported file format: '${file.name}'. Please upload a valid .docx or .txt file.`);
+  // 4. Reject all other formats to prevent binary garbage from reaching the AI
+  throw new Error("Unsupported file format. Please upload your CV in .doc or .docx format only.");
 }
 
 // ==================== DEEP CV ANALYSIS WITH OPENROUTER ====================
@@ -135,13 +133,13 @@ async function analyzeCVWithOpenRouter(text: string): Promise<{
     }
     
     return {
-      primaryRole: parsed.primaryRole || 'Software Developer',
+      primaryRole: parsed.primaryRole || 'Professional',
       secondaryRoles: Array.isArray(parsed.secondaryRoles) ? parsed.secondaryRoles : [],
       keySkills: Array.isArray(parsed.keySkills) ? parsed.keySkills : [],
       experienceYears: parsed.experienceYears || 3,
       industry: parsed.industry || 'Technology',
       summary: parsed.summary || 'Professional with relevant experience',
-      searchTerms: Array.isArray(parsed.searchTerms) ? parsed.searchTerms : ['software developer']
+      searchTerms: Array.isArray(parsed.searchTerms) ? parsed.searchTerms : ['professional']
     };
   } catch (error) {
     console.error("❌ OpenRouter Analysis Error:", error);
@@ -160,23 +158,23 @@ function fallbackAnalysis(text: string): {
   searchTerms: string[];
 } {
   const lowerText = text.toLowerCase();
-  let primaryRole = "Software Developer";
+  let primaryRole = "Professional";
   const secondaryRoles: string[] = [];
   const keySkills: string[] = [];
   let experienceYears = 3;
-  let industry = "Technology";
+  let industry = "General";
 
-  if (lowerText.includes("frontend") || lowerText.includes("react")) {
+  if (lowerText.includes("payroll") || lowerText.includes("tax")) {
+    primaryRole = "Payroll and Tax Specialist";
+  } else if (lowerText.includes("frontend") || lowerText.includes("react")) {
     primaryRole = "Frontend Developer";
   } else if (lowerText.includes("backend") || lowerText.includes("api")) {
     primaryRole = "Backend Developer";
   } else if (lowerText.includes("full stack")) {
     primaryRole = "Full Stack Developer";
-  } else if (lowerText.includes("payroll") || lowerText.includes("tax")) {
-    primaryRole = "Payroll Specialist";
   }
 
-  const skillKeywords = ['react', 'node.js', 'python', 'java', 'javascript', 'typescript', 'aws', 'docker', 'kubernetes', 'sql', 'mongodb', 'postgresql', 'git', 'linux', 'agile', 'payroll', 'tax', 'accounting', 'reconciliation', 'compliance'];
+  const skillKeywords = ['react', 'node.js', 'python', 'java', 'javascript', 'typescript', 'aws', 'docker', 'kubernetes', 'sql', 'mongodb', 'postgresql', 'git', 'linux', 'agile', 'payroll', 'tax', 'accounting', 'reconciliation', 'compliance', 'w-2', 'fica', 'sui', 'suta'];
   
   for (const skill of skillKeywords) {
     if (lowerText.includes(skill)) {
@@ -184,9 +182,9 @@ function fallbackAnalysis(text: string): {
     }
   }
 
-  const expMatch = text.match(/(\d+)\s*(?:years?|yrs?)/i);
+  const expMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:years?|yrs?)/i);
   if (expMatch) {
-    experienceYears = parseInt(expMatch[1]);
+    experienceYears = parseFloat(expMatch[1]);
   }
 
   return {
@@ -319,7 +317,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
     }
 
-    // ✅ CATCH FILE READ ERRORS EXPLICITLY
     let cvText = "";
     try {
       cvText = await readFileContent(file);
@@ -335,13 +332,12 @@ export async function POST(req: NextRequest) {
     console.log("📄 Extracted text size:", cvText.length, "bytes");
     console.log("📍 User Coords:", userLat, userLng);
 
-    // ✅ STRICT VALIDATION: Prevent empty/corrupted uploads
     if (!cvText || cvText.trim().length < 50) {
       console.error("❌ Invalid CV content received. Length:", cvText?.length);
       return NextResponse.json({
         success: false,
         isTechCV: false,
-        message: "Could not read CV content. The file might be corrupted or empty. Please try a different format or re-save the DOCX."
+        message: "Could not read CV content. The file might be corrupted or empty. Please try a different .doc or .docx file."
       }, { status: 400 });
     }
     
@@ -368,17 +364,10 @@ export async function POST(req: NextRequest) {
         lat: parseFloat(userLat),
         lon: parseFloat(userLng)
       };
-    } else if (userLocation && userLocation !== "India" && userLocation !== "") {
-      console.log("🔄 Frontend coords missing. Geocoding location on backend:", userLocation);
-      const backendCoords = await getCoordinates(userLocation);
-      if (backendCoords) {
-        userCoords = backendCoords;
-      }
-    }
-
-    if (userCoords) {
+      
       searchLocations = await getNearbyCities(userCoords.lat, userCoords.lon, 70);
       console.log("🏙️ Nearby cities within 70km:", searchLocations);
+      
       if (searchLocations.length === 0) {
         searchLocations = ["India"];
       }
@@ -390,14 +379,17 @@ export async function POST(req: NextRequest) {
     
     // ==================== BUILD SEARCH TERMS ====================
     let searchTerms = [...aiAnalysis.searchTerms];
+    
     if (!searchTerms.some(t => t.toLowerCase().includes(aiAnalysis.primaryRole.toLowerCase()))) {
       searchTerms.unshift(aiAnalysis.primaryRole);
     }
+    
     for (const role of aiAnalysis.secondaryRoles) {
       if (!searchTerms.some(t => t.toLowerCase().includes(role.toLowerCase()))) {
         searchTerms.push(role);
       }
     }
+    
     searchTerms = [...new Set(searchTerms.filter(term => term && term.trim().length > 0))];
     console.log("🔍 Final Search Terms:", searchTerms.slice(0, 10));
     
@@ -423,9 +415,11 @@ export async function POST(req: NextRequest) {
     
     for (const location of searchLocations) {
       console.log(`\n🔍 Searching in ${location}...`);
+      
       for (const term of searchTerms.slice(0, 3)) {
         try {
           const url = `https://api.adzuna.com/v1/api/jobs/in/search/1?app_id=${APP_ID}&app_key=${API_KEY}&results_per_page=15&what=${encodeURIComponent(term)}&where=${encodeURIComponent(location)}&max_days_old=7&content-type=application/json`;
+          
           const response = await fetchWithTimeout(url, 15000);
           
           if (response.ok) {
@@ -437,28 +431,30 @@ export async function POST(req: NextRequest) {
               for (const job of data.results) {
                 let jobCity = "";
                 let distance = null;
-                let withinRadius = false;
-
+                let isWithinRadius = true;
+                
                 if (job.location && job.location.display_name) {
                   const parts = job.location.display_name.split(',');
                   jobCity = parts[0]?.trim() || "";
                 }
                 
-                if (userCoords && !isNaN(userCoords.lat) && !isNaN(userCoords.lon)) {
+                if (userCoords && jobCity) {
                   const jobCoords = await getCoordinates(jobCity);
                   if (jobCoords) {
-                    distance = calculateDistance(userCoords.lat, userCoords.lon, jobCoords.lat, jobCoords.lon);
-                    withinRadius = distance <= 70;
-                    if (withinRadius) {
+                    distance = calculateDistance(
+                      userCoords.lat, userCoords.lon,
+                      jobCoords.lat, jobCoords.lon
+                    );
+                    isWithinRadius = distance <= 70;
+                    
+                    if (isWithinRadius) {
                       console.log(`    ✓ ${job.title} - ${jobCity}: ${distance.toFixed(1)}km (WITHIN 70km)`);
                     } else {
                       console.log(`    ✗ ${job.title} - ${jobCity}: ${distance.toFixed(1)}km (OUTSIDE 70km)`);
                     }
                   }
-                } else {
-                  withinRadius = false;
                 }
-
+                
                 allJobs.push({
                   id: `${job.id}_${term}_${location}`,
                   title: job.title || "Unknown",
@@ -475,7 +471,7 @@ export async function POST(req: NextRequest) {
                   primaryRole: aiAnalysis.primaryRole,
                   isTechJob: true,
                   distance: distance,
-                  withinRadius: withinRadius
+                  withinRadius: isWithinRadius
                 });
               }
             } else {
@@ -513,14 +509,10 @@ export async function POST(req: NextRequest) {
       .slice(0, 50);
     
     const withinRadiusCount = filteredJobs.filter(j => j.withinRadius).length;
+    
     console.log(`\n✅ ${filteredJobs.length} unique jobs`);
     console.log(`📍 Within 70km: ${withinRadiusCount}`);
     
-    const responseHeaders = new Headers();
-    responseHeaders.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    responseHeaders.set('Pragma', 'no-cache');
-    responseHeaders.set('Expires', '0');
-
     return NextResponse.json({
       success: true,
       isTechCV: true,
@@ -536,8 +528,10 @@ export async function POST(req: NextRequest) {
       withinRadiusCount,
       source: 'OpenRouter AI',
       location: searchLocations.join(', '),
-      message: `${filteredJobs.length} jobs found${withinRadiusCount > 0 ? ` (${withinRadiusCount} within 70km)` : ''}`
-    }, { headers: responseHeaders });
+      message: filteredJobs.length > 0 
+        ? `✅ ${withinRadiusCount} jobs within 70km, ${filteredJobs.length - withinRadiusCount} nearby (total: ${filteredJobs.length})`
+        : `⚠️ No jobs found. Try different search terms.`
+    });
     
   } catch (error) {
     console.error('❌ Error:', error);
