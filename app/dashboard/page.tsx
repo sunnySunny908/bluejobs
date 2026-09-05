@@ -1,4 +1,5 @@
 "use client";
+import React from 'react'; // ✅ Ye line add karni thi - sorry miss ho gayi!
 import { useSession } from "next-auth/react";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -31,7 +32,7 @@ function AdsterraBanner({ width, height, keyId }: { width: number; height: numbe
     };
   }, [keyId, width, height]);
 
-  return <div ref={containerRef} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '10px 0', overflow: 'hidden' }} />;
+  return <div ref={containerRef} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '0', overflow: 'hidden' }} />;
 }
 
 const trustedCompanies = [
@@ -569,12 +570,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* ✅ ADSTERRA 320x50 BANNER */}
-          <div style={styles.inFeedAd}>
-            <p style={styles.adLabel}>— Sponsored —</p>
-            <AdsterraBanner width={320} height={50} keyId="7f2c8c024d991d50a6b11ffa7675c061" />
-          </div>
-
           {message && (
             <div style={{
               ...styles.messageToast,
@@ -605,40 +600,60 @@ export default function Dashboard() {
               <h3 style={styles.sectionTitle}>Matching Jobs ({jobs.length})</h3>
               <div style={styles.jobsGrid}>
                 {jobs.map((job, idx) => (
-                  <div key={idx} style={styles.jobCard}>
-                    <div style={styles.jobHeader}>
-                      <div>
-                        <h4 style={styles.jobTitle}>{job.title || "Unknown"}</h4>
-                        <p style={styles.jobCompany}>{job.company || "Unknown"}</p>
+                  <React.Fragment key={idx}>
+                    {/* ✅ Actual Job Card */}
+                    <div style={styles.jobCard}>
+                      <div style={styles.jobHeader}>
+                        <div>
+                          <h4 style={styles.jobTitle}>{job.title || "Unknown"}</h4>
+                          <p style={styles.jobCompany}>{job.company || "Unknown"}</p>
+                        </div>
+                        <div style={styles.matchBadge}>
+                          {job.matchPercentage || Math.floor(Math.random() * 30) + 60}%
+                        </div>
                       </div>
-                      <div style={styles.matchBadge}>
-                        {job.matchPercentage || Math.floor(Math.random() * 30) + 60}%
-                      </div>
+                      {job.location && job.location !== "India" && (
+                        <p style={styles.jobLocation}>{job.location}</p>
+                      )}
+                      {job.distance && job.distance !== null && (
+                        <p style={styles.jobDistance}>{typeof job.distance === 'number' ? job.distance.toFixed(1) : job.distance} km away</p>
+                      )}
+                      {job.matchingSkills && job.matchingSkills.length > 0 && (
+                        <div style={styles.matchingSkills}>
+                          {job.matchingSkills.slice(0, 4).map((skill: string, i: number) => (
+                            <span key={i} style={styles.smallSkillTag}>{skill}</span>
+                          ))}
+                        </div>
+                      )}
+                      <button
+                        onClick={() => handleApply(job)}
+                        disabled={appliedJobs.has(job.id)}
+                        style={{
+                          ...styles.applyBtn,
+                          ...(appliedJobs.has(job.id) ? styles.applyBtnDisabled : {})
+                        }}
+                      >
+                        {appliedJobs.has(job.id) ? "Applied" : "Apply Now"}
+                      </button>
                     </div>
-                    {job.location && job.location !== "India" && (
-                      <p style={styles.jobLocation}>{job.location}</p>
-                    )}
-                    {job.distance && job.distance !== null && (
-                      <p style={styles.jobDistance}>{typeof job.distance === 'number' ? job.distance.toFixed(1) : job.distance} km away</p>
-                    )}
-                    {job.matchingSkills && job.matchingSkills.length > 0 && (
-                      <div style={styles.matchingSkills}>
-                        {job.matchingSkills.slice(0, 4).map((skill: string, i: number) => (
-                          <span key={i} style={styles.smallSkillTag}>{skill}</span>
-                        ))}
+                    
+                    {/* ✅ ADSTERRA 320x50 BANNER - ONLY ONCE after the 5th job (idx === 4) */}
+                    {/* Wrapped in jobCard style so it blends perfectly and doesn't look odd */}
+                    {idx === 4 && (
+                      <div style={{ 
+                        ...styles.jobCard, 
+                        padding: "12px", 
+                        display: "flex", 
+                        flexDirection: "column", 
+                        alignItems: "center", 
+                        justifyContent: "center",
+                        minHeight: "90px"
+                      }}>
+                        <p style={{ ...styles.adLabel, marginBottom: "8px", fontSize: "10px" }}>— Sponsored —</p>
+                        <AdsterraBanner width={320} height={50} keyId="7f2c8c024d991d50a6b11ffa7675c061" />
                       </div>
                     )}
-                    <button
-                      onClick={() => handleApply(job)}
-                      disabled={appliedJobs.has(job.id)}
-                      style={{
-                        ...styles.applyBtn,
-                        ...(appliedJobs.has(job.id) ? styles.applyBtnDisabled : {})
-                      }}
-                    >
-                      {appliedJobs.has(job.id) ? "Applied" : "Apply Now"}
-                    </button>
-                  </div>
+                  </React.Fragment>
                 ))}
               </div>
 
@@ -686,28 +701,29 @@ export default function Dashboard() {
         </div>
 
         <div style={styles.sidebar}>
-          {/* ✅ ADSTERRA 300x250 BANNER */}
+          {/* ✅ ADSTERRA 300x250 BANNER - First (KEPT) */}
           <div style={styles.adContainer}>
             <p style={styles.adLabel}>— Sponsored —</p>
             <AdsterraBanner width={300} height={250} keyId="c79b11868ca9e69eb48972d1fa68174c" />
           </div>
 
+          {/* ✅ COMMENTED OUT: Second sidebar ad (to prevent UX clutter) */}
+          {/* 
           <div style={styles.adContainer}>
             <p style={styles.adLabel}>— Sponsored —</p>
-            <AdUnit 
-              slot="0987654321" 
-              format="vertical" 
-              type="sidebar"
-              style={{ minHeight: "200px" }}
-            />
+            <AdsterraBanner width={300} height={250} keyId="c79b11868ca9e69eb48972d1fa68174c" />
           </div>
+          */}
 
-          <div style={styles.sponsoredCard}>
+          {/* ✅ COMMENTED OUT: Sponsored Card (to avoid looking fake) */}
+          {/* 
+          <div style={{...styles.sponsoredCard, display: "block"}}>
             <div style={styles.sponsoredBadge}>Sponsored</div>
             <h4 style={styles.sponsoredTitle}>Senior Developer</h4>
             <p style={styles.sponsoredCompany}>Google</p>
             <p style={styles.sponsoredCta}>Apply Now</p>
           </div>
+          */}
         </div>
       </div>
     </div>
@@ -1173,7 +1189,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     borderRadius: 12,
     padding: 14,
     border: "1px solid rgba(245,158,11,0.06)",
-    display: "none",
   },
   sponsoredBadge: {
     fontSize: 9,
@@ -1403,9 +1418,6 @@ if (typeof document !== 'undefined') {
         min-width: 300px !important;
         position: sticky !important;
         top: 80px !important;
-      }
-      .sponsoredCard {
-        display: block !important;
       }
       .jobsGrid {
         grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)) !important;
