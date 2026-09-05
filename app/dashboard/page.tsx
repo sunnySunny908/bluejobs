@@ -4,6 +4,36 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import AdUnit from "../components/AdUnit";
 
+// ✅ Adsterra Banner Helper Component
+function AdsterraBanner({ width, height, keyId }: { width: number; height: number; keyId: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    (window as any).atOptions = {
+      'key': keyId,
+      'format': 'iframe',
+      'height': height,
+      'width': width,
+      'params': {}
+    };
+
+    const script = document.createElement('script');
+    script.src = `https://www.highrevenueformat.com/${keyId}/invoke.js`;
+    script.async = true;
+    containerRef.current.appendChild(script);
+
+    return () => {
+      if (containerRef.current) {
+        containerRef.current.innerHTML = '';
+      }
+    };
+  }, [keyId, width, height]);
+
+  return <div ref={containerRef} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '10px 0', overflow: 'hidden' }} />;
+}
+
 const trustedCompanies = [
   { name: "Google", domain: "google.com" },
   { name: "Microsoft", domain: "microsoft.com" },
@@ -58,7 +88,7 @@ const trustedCompanies = [
 
 const GUEST_USER = {
   name: "Guest User",
-  email: "guest@bluejobs.com",
+  email: "guest@jobswitchers.com",
 };
 
 export default function Dashboard() {
@@ -539,14 +569,10 @@ export default function Dashboard() {
             </div>
           </div>
 
+          {/* ✅ ADSTERRA 320x50 BANNER */}
           <div style={styles.inFeedAd}>
             <p style={styles.adLabel}>— Sponsored —</p>
-            <AdUnit 
-              slot="1234567890" 
-              format="auto" 
-              type="infeed"
-              style={{ minHeight: "100px" }}
-            />
+            <AdsterraBanner width={320} height={50} keyId="7f2c8c024d991d50a6b11ffa7675c061" />
           </div>
 
           {message && (
@@ -616,7 +642,6 @@ export default function Dashboard() {
                 ))}
               </div>
 
-              {/* ✅ ADZUNA ATTRIBUTION ADDED HERE (Exact Location) */}
               <div style={{ 
                 textAlign: "center", 
                 marginTop: 30, 
@@ -661,14 +686,10 @@ export default function Dashboard() {
         </div>
 
         <div style={styles.sidebar}>
+          {/* ✅ ADSTERRA 300x250 BANNER */}
           <div style={styles.adContainer}>
             <p style={styles.adLabel}>— Sponsored —</p>
-            <AdUnit 
-              slot="1234567890" 
-              format="vertical" 
-              type="sidebar"
-              style={{ minHeight: "200px" }}
-            />
+            <AdsterraBanner width={300} height={250} keyId="c79b11868ca9e69eb48972d1fa68174c" />
           </div>
 
           <div style={styles.adContainer}>
