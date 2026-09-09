@@ -1,5 +1,5 @@
 "use client";
-import React from 'react'; // ✅ Ye line add karni thi - sorry miss ho gayi!
+import React from 'react';
 import { useSession } from "next-auth/react";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -637,9 +637,9 @@ export default function Dashboard() {
                       </button>
                     </div>
                     
-                    {/* ✅ ADSTERRA 320x50 BANNER - ONLY ONCE after the 5th job (idx === 4) */}
+                    {/* ✅ ADSTERRA 320x50 BANNER - Repeats EVERY 5th job naturally */}
                     {/* Wrapped in jobCard style so it blends perfectly and doesn't look odd */}
-                    {idx === 4 && (
+                    {(idx + 1) % 5 === 0 && idx < jobs.length - 1 && (
                       <div style={{ 
                         ...styles.jobCard, 
                         padding: "12px", 
