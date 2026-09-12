@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import mammoth from 'mammoth';
+import PDFParser from 'pdf2json'; // ✅ Correct import for pdf2json
 import { prisma } from '@/lib/prisma';
 
 // ==================== HELPER: ROBUST JSON EXTRACTOR ====================
@@ -23,14 +24,35 @@ function extractJsonFromText(text: string): any {
   throw new Error("No valid JSON found in AI response");
 }
 
-// ==================== READ FILE CONTENT (STRICT .DOC/.DOCX ONLY) ====================
+// ==================== READ FILE CONTENT (100% VERCEL COMPATIBLE) ====================
 async function readFileContent(file: File): Promise<string> {
   const buffer = Buffer.from(await file.arrayBuffer());
   const fileName = file.name.toLowerCase();
   
-  // 1. Explicitly reject PDFs with a helpful message
+  // 1. Handle PDF using pdf2json (Pure JS, no canvas/DOM dependencies)
   if (fileName.endsWith('.pdf')) {
-    throw new Error("PDF files are currently not supported. Please convert your CV to .doc or .docx format and try again.");
+    try {
+      const text = await new Promise<string>((resolve, reject) => {
+        // @ts-ignore - pdf2json types can be tricky, this is the standard way
+        const pdfParser = new (PDFParser as any)(null, 1);
+        
+        pdfParser.on('pdfParser_dataError', (errData: any) => {
+          reject(new Error(errData.parserError || "Failed to parse PDF"));
+        });
+        
+        pdfParser.on('pdfParser_dataReady', () => {
+          resolve(pdfParser.getRawTextContent());
+        });
+        
+        pdfParser.parseBuffer(buffer);
+      });
+      
+      if (text.trim().length > 0) return text;
+      throw new Error("Extracted text from PDF is empty. Please ensure it's a text-based PDF, not a scanned image.");
+    } catch (e: any) {
+      console.error("PDF parse error:", e.message);
+      throw new Error("Failed to parse PDF document. Please try a .doc or .docx file, or ensure the PDF is text-based.");
+    }
   }
 
   // 2. Handle DOCX and legacy DOC
@@ -40,8 +62,8 @@ async function readFileContent(file: File): Promise<string> {
       const text = result.value || "";
       if (text.trim().length > 0) return text;
       throw new Error("Extracted text is empty. Please ensure the document is not corrupted.");
-    } catch (e) {
-      console.error("Mammoth error:", e);
+    } catch (e: any) {
+      console.error("Mammoth error:", e.message);
       throw new Error("Failed to parse Word document. Please try saving it as a standard .docx file.");
     }
   }
@@ -51,8 +73,8 @@ async function readFileContent(file: File): Promise<string> {
     return buffer.toString('utf-8');
   }
 
-  // 4. Reject all other formats to prevent binary garbage from reaching the AI
-  throw new Error("Unsupported file format. Please upload your CV in .doc or .docx format only.");
+  // 4. Reject all other formats
+  throw new Error("Unsupported file format. Please upload your CV in .doc, .docx, or .pdf format only.");
 }
 
 // ==================== DEEP CV ANALYSIS WITH OPENROUTER ====================
@@ -95,8 +117,8 @@ async function analyzeCVWithOpenRouter(text: string): Promise<{
       headers: {
         "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://bluejobs.onrender.com",
-        "X-Title": "bluejobs"
+        "HTTP-Referer": "https://jobswitchers.com",
+        "X-Title": "JobSwitchers"
       },
       body: JSON.stringify({
         model: "meta-llama/llama-3.1-70b-instruct",
@@ -253,7 +275,7 @@ async function getCoordinates(city: string): Promise<{ lat: number; lon: number 
     
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(cleanCity + ', India')}&format=json&limit=1`;
     const response = await fetch(url, {
-      headers: { 'User-Agent': 'bluejobs/1.0' }
+      headers: { 'User-Agent': 'jobswitchers/1.0' }
     });
     
     if (response.ok) {
@@ -337,7 +359,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         success: false,
         isTechCV: false,
-        message: "Could not read CV content. The file might be corrupted or empty. Please try a different .doc or .docx file."
+        message: "Could not read CV content. The file might be corrupted or empty. Please try a different .doc, .docx, or .pdf file."
       }, { status: 400 });
     }
     
@@ -403,7 +425,7 @@ export async function POST(req: NextRequest) {
       try {
         const response = await fetch(url, {
           signal: controller.signal,
-          headers: { 'User-Agent': 'bluejobs/1.0' }
+          headers: { 'User-Agent': 'jobswitchers/1.0' }
         });
         clearTimeout(timeoutId);
         return response;

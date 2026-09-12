@@ -222,15 +222,9 @@ export default function Dashboard() {
     if (selectedFile) {
       const fileName = selectedFile.name.toLowerCase();
       
-      if (fileName.endsWith('.pdf')) {
-        setMessage("PDF files are not supported. Please convert your CV to .doc or .docx format and try again.");
-        setFile(null);
-        setTimeout(() => setMessage(""), 5000);
-        return;
-      }
-      
-      if (!fileName.endsWith('.doc') && !fileName.endsWith('.docx')) {
-        setMessage("Only .doc or .docx files are accepted. Please upload a valid CV.");
+      // ✅ CHANGE 1: PDF ko accept karne ke liye condition update ki
+      if (!fileName.endsWith('.doc') && !fileName.endsWith('.docx') && !fileName.endsWith('.pdf')) {
+        setMessage("Only .doc, .docx, or .pdf files are accepted. Please upload a valid CV.");
         setFile(null);
         setTimeout(() => setMessage(""), 5000);
         return;
@@ -357,17 +351,12 @@ export default function Dashboard() {
     if (files.length > 0) {
       const fileName = files[0].name.toLowerCase();
       
-      if (fileName.endsWith('.pdf')) {
-        setMessage("PDF files are not supported. Please upload .doc or .docx format.");
-        setTimeout(() => setMessage(""), 5000);
-        return;
-      }
-      
-      if (fileName.endsWith('.doc') || fileName.endsWith('.docx')) {
+      // ✅ CHANGE 2: Drop handler mein bhi PDF accept karne ke liye update kiya
+      if (fileName.endsWith('.doc') || fileName.endsWith('.docx') || fileName.endsWith('.pdf')) {
         setFile(files[0]);
         setMessage("");
       } else {
-        setMessage("Only .doc or .docx files are accepted.");
+        setMessage("Only .doc, .docx, or .pdf files are accepted.");
         setTimeout(() => setMessage(""), 5000);
       }
     }
@@ -492,10 +481,11 @@ export default function Dashboard() {
                 <h2 style={styles.uploadTitle}>
                   {file ? file.name : "Drop your CV here"}
                 </h2>
+                {/* ✅ CHANGE 3: UI text update kiya PDF support dikhane ke liye */}
                 <p style={styles.uploadSub}>
                   {file 
                     ? `${(file.size / 1024).toFixed(0)} KB · Ready to upload` 
-                    : "Please upload .doc or .docx files only (Max 5MB)\nPDF files are not supported"}
+                    : "Please upload .doc, .docx, or .pdf files (Max 5MB)"}
                 </p>
                 
                 <div style={styles.uploadActions}>
@@ -505,7 +495,8 @@ export default function Dashboard() {
                   <input
                     type="file"
                     id="cv-upload-hero"
-                    accept=".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    // ✅ CHANGE 4: Accept attribute mein PDF add kiya
+                    accept=".doc,.docx,.pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf"
                     onChange={handleFileChange}
                     style={{ display: "none" }}
                   />
@@ -573,10 +564,10 @@ export default function Dashboard() {
           {message && (
             <div style={{
               ...styles.messageToast,
-              background: message.includes("PDF") || message.includes("not supported") || message.includes("not accepted")
+              background: message.includes("not supported") || message.includes("not accepted") || message.includes("Unsupported")
                 ? "rgba(239, 68, 68, 0.15)" 
                 : "rgba(30,41,59,0.8)",
-              border: message.includes("PDF") || message.includes("not supported") || message.includes("not accepted")
+              border: message.includes("not supported") || message.includes("not accepted") || message.includes("Unsupported")
                 ? "1px solid rgba(239, 68, 68, 0.3)"
                 : "1px solid rgba(255,255,255,0.03)"
             }}>
@@ -638,7 +629,6 @@ export default function Dashboard() {
                     </div>
                     
                     {/* ✅ ADSTERRA 320x50 BANNER - Repeats EVERY 5th job naturally */}
-                    {/* Wrapped in jobCard style so it blends perfectly and doesn't look odd */}
                     {(idx + 1) % 5 === 0 && idx < jobs.length - 1 && (
                       <div style={{ 
                         ...styles.jobCard, 
