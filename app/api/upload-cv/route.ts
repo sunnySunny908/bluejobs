@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import mammoth from 'mammoth';
-import PDFParser from 'pdf2json'; // ✅ Correct import for pdf2json
+import PDFParser from 'pdf2json';
 import { prisma } from '@/lib/prisma';
 
 // ==================== HELPER: ROBUST JSON EXTRACTOR ====================
@@ -29,11 +29,9 @@ async function readFileContent(file: File): Promise<string> {
   const buffer = Buffer.from(await file.arrayBuffer());
   const fileName = file.name.toLowerCase();
   
-  // 1. Handle PDF using pdf2json (Pure JS, no canvas/DOM dependencies)
   if (fileName.endsWith('.pdf')) {
     try {
       const text = await new Promise<string>((resolve, reject) => {
-        // @ts-ignore - pdf2json types can be tricky, this is the standard way
         const pdfParser = new (PDFParser as any)(null, 1);
         
         pdfParser.on('pdfParser_dataError', (errData: any) => {
@@ -55,7 +53,6 @@ async function readFileContent(file: File): Promise<string> {
     }
   }
 
-  // 2. Handle DOCX and legacy DOC
   if (fileName.endsWith('.docx') || fileName.endsWith('.doc')) {
     try {
       const result = await mammoth.extractRawText({ buffer: buffer });
@@ -68,17 +65,16 @@ async function readFileContent(file: File): Promise<string> {
     }
   }
   
-  // 3. Handle TXT (as a safe fallback)
   if (fileName.endsWith('.txt')) {
     return buffer.toString('utf-8');
   }
 
-  // 4. Reject all other formats
   throw new Error("Unsupported file format. Please upload your CV in .doc, .docx, or .pdf format only.");
 }
 
 // ==================== DEEP CV ANALYSIS WITH OPENROUTER ====================
 async function analyzeCVWithOpenRouter(text: string): Promise<{
+  candidateFirstName: string;
   primaryRole: string;
   secondaryRoles: string[];
   keySkills: string[];
@@ -86,6 +82,8 @@ async function analyzeCVWithOpenRouter(text: string): Promise<{
   industry: string;
   summary: string;
   searchTerms: string[];
+  salaryEstimate: { min: number; max: number; currency: string; confidence: string; reasoning?: string; marketTrend?: string; comparableProfiles?: string[]; factors?: any };
+  negotiationTip: string;
 }> {
   try {
     const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
@@ -96,18 +94,45 @@ async function analyzeCVWithOpenRouter(text: string): Promise<{
     }
 
     const prompt = `
-      You are an expert career coach. Analyze this resume.
-      Return ONLY valid JSON:
+      You are a Senior Compensation Analyst at a top Indian recruitment firm.
+      Analyze this CV and provide a PRECISE, TIGHT salary range.
+      
+      CRITICAL: Extract the candidate's FIRST NAME from the CV (usually at the top).
+      
+      RETURN STRICT JSON ONLY:
       {
-        "primaryRole": "Most accurate job title",
-        "secondaryRoles": ["role2", "role3"],
+        "candidateFirstName": "First name from CV (e.g., 'Sunny')",
+        "primaryRole": "Exact current designation",
+        "secondaryRoles": ["alt1", "alt2"],
         "keySkills": ["skill1", "skill2", "skill3"],
-        "experienceYears": X,
-        "industry": "Industry name",
-        "summary": "2-3 line summary",
-        "searchTerms": ["term1", "term2", "term3"]
+        "experienceYears": 3.8,
+        "industry": "Industry",
+        "summary": "2-line summary",
+        "searchTerms": ["term1", "term2"],
+        "roleCategory": "Category letter",
+        "salaryEstimate": {
+          "min": 9,
+          "max": 11,
+          "currency": "LPA",
+          "confidence": "High",
+          "reasoning": "Brief reasoning",
+          "marketTrend": "Market trend",
+          "comparableProfiles": ["Profile 1", "Profile 2"],
+          "factors": {
+            "strengths": "Strengths",
+            "weaknesses": "Weaknesses",
+            "marketPosition": "Position"
+          }
+        },
+        "negotiationTip": "Specific tip"
       }
-
+      
+      RULES:
+      1. Range must be TIGHT (max 20-25% difference)
+      2. Be realistic and conservative
+      3. Extract FIRST NAME from CV
+      4. Cite 2-3 comparable profiles
+      
       Resume text:
       ${text.substring(0, 8000)}
     `;
@@ -133,7 +158,7 @@ async function analyzeCVWithOpenRouter(text: string): Promise<{
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("❌ OpenRouter API Error:", response.status, errorText);
+      console.error(" OpenRouter API Error:", response.status, errorText);
       return fallbackAnalysis(text);
     }
 
@@ -155,22 +180,26 @@ async function analyzeCVWithOpenRouter(text: string): Promise<{
     }
     
     return {
+      candidateFirstName: parsed.candidateFirstName || "",
       primaryRole: parsed.primaryRole || 'Professional',
       secondaryRoles: Array.isArray(parsed.secondaryRoles) ? parsed.secondaryRoles : [],
       keySkills: Array.isArray(parsed.keySkills) ? parsed.keySkills : [],
       experienceYears: parsed.experienceYears || 3,
       industry: parsed.industry || 'Technology',
       summary: parsed.summary || 'Professional with relevant experience',
-      searchTerms: Array.isArray(parsed.searchTerms) ? parsed.searchTerms : ['professional']
+      searchTerms: Array.isArray(parsed.searchTerms) ? parsed.searchTerms : ['professional'],
+      salaryEstimate: parsed.salaryEstimate || { min: 0, max: 0, currency: "LPA", confidence: "Medium" },
+      negotiationTip: parsed.negotiationTip || "Highlight your key achievements during the discussion."
     };
   } catch (error) {
-    console.error("❌ OpenRouter Analysis Error:", error);
+    console.error(" OpenRouter Analysis Error:", error);
     return fallbackAnalysis(text);
   }
 }
 
 // ==================== FALLBACK ANALYSIS ====================
 function fallbackAnalysis(text: string): {
+  candidateFirstName: string;
   primaryRole: string;
   secondaryRoles: string[];
   keySkills: string[];
@@ -178,6 +207,8 @@ function fallbackAnalysis(text: string): {
   industry: string;
   summary: string;
   searchTerms: string[];
+  salaryEstimate: { min: number; max: number; currency: string; confidence: string };
+  negotiationTip: string;
 } {
   const lowerText = text.toLowerCase();
   let primaryRole = "Professional";
@@ -185,6 +216,10 @@ function fallbackAnalysis(text: string): {
   const keySkills: string[] = [];
   let experienceYears = 3;
   let industry = "General";
+
+  // Try to extract first name (usually first word in CV)
+  const nameMatch = text.match(/^([A-Z][a-z]+)/);
+  const candidateFirstName = nameMatch ? nameMatch[1] : "";
 
   if (lowerText.includes("payroll") || lowerText.includes("tax")) {
     primaryRole = "Payroll and Tax Specialist";
@@ -210,13 +245,16 @@ function fallbackAnalysis(text: string): {
   }
 
   return {
+    candidateFirstName,
     primaryRole,
     secondaryRoles: secondaryRoles.slice(0, 3),
     keySkills: keySkills.slice(0, 10),
     experienceYears,
     industry,
     summary: `${primaryRole} with ${experienceYears} years`,
-    searchTerms: [primaryRole, ...keySkills.slice(0, 3)]
+    searchTerms: [primaryRole, ...keySkills.slice(0, 3)],
+    salaryEstimate: { min: 0, max: 0, currency: "LPA", confidence: "Low" },
+    negotiationTip: "Focus on your adaptability and willingness to learn new skills."
   };
 }
 
@@ -363,10 +401,10 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
     
-    // ==================== OPENROUTER ANALYSIS ====================
     const aiAnalysis = await analyzeCVWithOpenRouter(cvText);
     
     console.log("🧠 OpenRouter Analysis Complete:");
+    console.log("👤 Candidate Name:", aiAnalysis.candidateFirstName);
     console.log("🏆 Primary Role:", aiAnalysis.primaryRole);
     console.log("🎯 Key Skills:", aiAnalysis.keySkills.slice(0, 5));
 
@@ -377,7 +415,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'API keys missing' }, { status: 500 });
     }
     
-    // ==================== GET USER COORDINATES & SEARCH LOCATIONS ====================
     let userCoords = null;
     let searchLocations: string[] = [];
     
@@ -399,7 +436,6 @@ export async function POST(req: NextRequest) {
       searchLocations = ["India"];
     }
     
-    // ==================== BUILD SEARCH TERMS ====================
     let searchTerms = [...aiAnalysis.searchTerms];
     
     if (!searchTerms.some(t => t.toLowerCase().includes(aiAnalysis.primaryRole.toLowerCase()))) {
@@ -415,7 +451,6 @@ export async function POST(req: NextRequest) {
     searchTerms = [...new Set(searchTerms.filter(term => term && term.trim().length > 0))];
     console.log("🔍 Final Search Terms:", searchTerms.slice(0, 10));
     
-    // ==================== FETCH JOBS ====================
     let allJobs: any[] = [];
     let totalJobsFound = 0;
     
@@ -508,7 +543,7 @@ export async function POST(req: NextRequest) {
       }
     }
     
-    console.log(`\n📊 Total raw jobs found: ${totalJobsFound}`);
+    console.log(`\n Total raw jobs found: ${totalJobsFound}`);
     
     const seenUrls = new Set();
     const filteredJobs = allJobs
@@ -538,6 +573,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       isTechCV: true,
+      candidateFirstName: aiAnalysis.candidateFirstName,
       primaryRole: aiAnalysis.primaryRole,
       secondaryRoles: aiAnalysis.secondaryRoles,
       keySkills: aiAnalysis.keySkills,
@@ -550,6 +586,8 @@ export async function POST(req: NextRequest) {
       withinRadiusCount,
       source: 'OpenRouter AI',
       location: searchLocations.join(', '),
+      salaryEstimate: aiAnalysis.salaryEstimate,
+      negotiationTip: aiAnalysis.negotiationTip,
       message: filteredJobs.length > 0 
         ? `✅ ${withinRadiusCount} jobs within 70km, ${filteredJobs.length - withinRadiusCount} nearby (total: ${filteredJobs.length})`
         : `⚠️ No jobs found. Try different search terms.`

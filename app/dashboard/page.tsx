@@ -109,6 +109,11 @@ export default function Dashboard() {
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [manualLocation, setManualLocation] = useState<string>("");
   
+  // ✅ NEW: State for Candidate Name, Salary and Negotiation Data
+  const [candidateName, setCandidateName] = useState<string>("");
+  const [salaryData, setSalaryData] = useState<any>(null);
+  const [negotiationTip, setNegotiationTip] = useState<string>("");
+  
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const user = session?.user || GUEST_USER;
@@ -222,7 +227,6 @@ export default function Dashboard() {
     if (selectedFile) {
       const fileName = selectedFile.name.toLowerCase();
       
-      // ✅ CHANGE 1: PDF ko accept karne ke liye condition update ki
       if (!fileName.endsWith('.doc') && !fileName.endsWith('.docx') && !fileName.endsWith('.pdf')) {
         setMessage("Only .doc, .docx, or .pdf files are accepted. Please upload a valid CV.");
         setFile(null);
@@ -298,6 +302,11 @@ export default function Dashboard() {
         setJobs(data.matchedJobs || []);
         setAppliedJobs(new Set());
         
+        // ✅ NEW: Set candidate name and salary data from API response
+        setCandidateName(data.candidateFirstName || "");
+        setSalaryData(data.salaryEstimate || null);
+        setNegotiationTip(data.negotiationTip || "");
+        
         const radiusMsg = (finalLat && finalLng) || (finalLocation && finalLocation !== "India") 
           ? `within 70km of ${finalLocation}` 
           : "in India";
@@ -351,7 +360,6 @@ export default function Dashboard() {
     if (files.length > 0) {
       const fileName = files[0].name.toLowerCase();
       
-      // ✅ CHANGE 2: Drop handler mein bhi PDF accept karne ke liye update kiya
       if (fileName.endsWith('.doc') || fileName.endsWith('.docx') || fileName.endsWith('.pdf')) {
         setFile(files[0]);
         setMessage("");
@@ -481,7 +489,6 @@ export default function Dashboard() {
                 <h2 style={styles.uploadTitle}>
                   {file ? file.name : "Drop your CV here"}
                 </h2>
-                {/* ✅ CHANGE 3: UI text update kiya PDF support dikhane ke liye */}
                 <p style={styles.uploadSub}>
                   {file 
                     ? `${(file.size / 1024).toFixed(0)} KB · Ready to upload` 
@@ -495,7 +502,6 @@ export default function Dashboard() {
                   <input
                     type="file"
                     id="cv-upload-hero"
-                    // ✅ CHANGE 4: Accept attribute mein PDF add kiya
                     accept=".doc,.docx,.pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf"
                     onChange={handleFileChange}
                     style={{ display: "none" }}
@@ -575,6 +581,70 @@ export default function Dashboard() {
             </div>
           )}
 
+          {/* ✅ NEW: AI MARKET VALUE & SALARY CARD WITH PERSONALIZED NAME */}
+          {salaryData && salaryData.min > 0 && (
+            <div style={{
+              position: "relative",
+              zIndex: 5,
+              background: "linear-gradient(135deg, rgba(245,158,11,0.08) 0%, rgba(124,58,237,0.08) 100%)",
+              backdropFilter: "blur(20px)",
+              borderRadius: 20,
+              padding: 24,
+              margin: "20px 0",
+              border: "1px solid rgba(245,158,11,0.15)",
+              boxShadow: "0 10px 40px rgba(245,158,11,0.05)"
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16 }}>
+                <div style={{ flex: 1, minWidth: 250 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                    <span style={{ fontSize: 20 }}></span>
+                    <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#fbbf24", letterSpacing: "0.5px" }}>
+                      {candidateName ? `${candidateName}'s AI-Estimated Market Value` : "Your AI-Estimated Market Value"}
+                    </h3>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 12 }}>
+                    <span style={{ fontSize: 36, fontWeight: 800, color: "white", letterSpacing: "-1px" }}>
+                      ₹{salaryData.min} - ₹{salaryData.max}
+                    </span>
+                    <span style={{ fontSize: 16, fontWeight: 600, color: "rgba(255,255,255,0.6)" }}>
+                      {salaryData.currency}
+                    </span>
+                  </div>
+                  <p style={{ margin: 0, fontSize: 13, color: "rgba(255,255,255,0.5)", lineHeight: 1.5 }}>
+                    Based on your {salaryData.confidence.toLowerCase()} confidence match for current Indian market trends.
+                  </p>
+                </div>
+
+                {/* Negotiation Tip Box */}
+                {negotiationTip && (
+                  <div style={{ 
+                    flex: 1, 
+                    minWidth: 250, 
+                    background: "rgba(0,0,0,0.2)", 
+                    borderRadius: 12, 
+                    padding: 16, 
+                    border: "1px solid rgba(255,255,255,0.05)" 
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                      <span style={{ fontSize: 16 }}>💡</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "#34d399", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                        HR Negotiation Tip
+                      </span>
+                    </div>
+                    <p style={{ margin: 0, fontSize: 13, color: "rgba(255,255,255,0.8)", lineHeight: 1.5, fontStyle: "italic" }}>
+                      "{negotiationTip}"
+                    </p>
+                  </div>
+                )}
+              </div>
+              
+              {/* Disclaimer */}
+              <p style={{ margin: "16px 0 0", fontSize: 10, color: "rgba(255,255,255,0.3)", textAlign: "right" }}>
+                *AI estimate based on market data. Actual offers may vary based on company and interview performance.
+              </p>
+            </div>
+          )}
+
           {skills.length > 0 && (
             <div style={styles.skillsCard}>
               <h3 style={styles.sectionTitle}>Skills Detected</h3>
@@ -592,7 +662,6 @@ export default function Dashboard() {
               <div style={styles.jobsGrid}>
                 {jobs.map((job, idx) => (
                   <React.Fragment key={idx}>
-                    {/* ✅ Actual Job Card */}
                     <div style={styles.jobCard}>
                       <div style={styles.jobHeader}>
                         <div>
@@ -628,7 +697,6 @@ export default function Dashboard() {
                       </button>
                     </div>
                     
-                    {/* ✅ ADSTERRA 320x50 BANNER - Repeats EVERY 5th job naturally */}
                     {(idx + 1) % 5 === 0 && idx < jobs.length - 1 && (
                       <div style={{ 
                         ...styles.jobCard, 
@@ -691,29 +759,10 @@ export default function Dashboard() {
         </div>
 
         <div style={styles.sidebar}>
-          {/* ✅ ADSTERRA 300x250 BANNER - First (KEPT) */}
           <div style={styles.adContainer}>
             <p style={styles.adLabel}>— Sponsored —</p>
             <AdsterraBanner width={300} height={250} keyId="c79b11868ca9e69eb48972d1fa68174c" />
           </div>
-
-          {/* ✅ COMMENTED OUT: Second sidebar ad (to prevent UX clutter) */}
-          {/* 
-          <div style={styles.adContainer}>
-            <p style={styles.adLabel}>— Sponsored —</p>
-            <AdsterraBanner width={300} height={250} keyId="c79b11868ca9e69eb48972d1fa68174c" />
-          </div>
-          */}
-
-          {/* ✅ COMMENTED OUT: Sponsored Card (to avoid looking fake) */}
-          {/* 
-          <div style={{...styles.sponsoredCard, display: "block"}}>
-            <div style={styles.sponsoredBadge}>Sponsored</div>
-            <h4 style={styles.sponsoredTitle}>Senior Developer</h4>
-            <p style={styles.sponsoredCompany}>Google</p>
-            <p style={styles.sponsoredCta}>Apply Now</p>
-          </div>
-          */}
         </div>
       </div>
     </div>
