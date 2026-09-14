@@ -697,7 +697,7 @@ export default function Dashboard() {
                       </button>
                     </div>
                     
-                    {(idx + 1) % 5 === 0 && idx < jobs.length - 1 && (
+                    {(idx + 1) % 5 === 0 && (
                       <div style={{ 
                         ...styles.jobCard, 
                         padding: "12px", 
@@ -706,10 +706,14 @@ export default function Dashboard() {
                         alignItems: "center", 
                         justifyContent: "center",
                         minHeight: "90px",
-                        margin: "12px 0"
+                        margin: "12px 0",
+                        border: "2px dashed rgba(245, 158, 11, 0.5)"
                       }}>
-                        <p style={{ ...styles.adLabel, marginBottom: "8px", fontSize: "10px" }}>— Sponsored —</p>
+                        <p style={{ ...styles.adLabel, marginBottom: "8px", fontSize: "10px", color: "#fbbf24", fontWeight: "bold" }}>
+                        📢 Sponsored Ad Slot (Job #{idx + 1})
+                        </p>
                         <AdsterraBanner width={320} height={50} keyId="7f2c8c024d991d50a6b11ffa7675c061" />
+
                       </div>
                     )}
                   </React.Fragment>
