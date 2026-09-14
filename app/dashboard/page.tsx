@@ -597,7 +597,7 @@ export default function Dashboard() {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16 }}>
                 <div style={{ flex: 1, minWidth: 250 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                    <span style={{ fontSize: 20 }}></span>
+                    <span style={{ fontSize: 20 }}>💰</span>
                     <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#fbbf24", letterSpacing: "0.5px" }}>
                       {candidateName ? `${candidateName}'s AI-Estimated Market Value` : "Your AI-Estimated Market Value"}
                     </h3>
@@ -662,6 +662,7 @@ export default function Dashboard() {
               <div style={styles.jobsGrid}>
                 {jobs.map((job, idx) => (
                   <React.Fragment key={idx}>
+                    {/* ✅ Actual Job Card */}
                     <div style={styles.jobCard}>
                       <div style={styles.jobHeader}>
                         <div>
@@ -697,6 +698,7 @@ export default function Dashboard() {
                       </button>
                     </div>
                     
+                    {/* ✅ PRODUCTION READY: ADSTERRA 320x50 BANNER - Repeats EVERY 5th job naturally */}
                     {(idx + 1) % 5 === 0 && (
                       <div style={{ 
                         ...styles.jobCard, 
@@ -706,14 +708,10 @@ export default function Dashboard() {
                         alignItems: "center", 
                         justifyContent: "center",
                         minHeight: "90px",
-                        margin: "12px 0",
-                        border: "2px dashed rgba(245, 158, 11, 0.5)"
+                        margin: "12px 0"
                       }}>
-                        <p style={{ ...styles.adLabel, marginBottom: "8px", fontSize: "10px", color: "#fbbf24", fontWeight: "bold" }}>
-                        📢 Sponsored Ad Slot (Job #{idx + 1})
-                        </p>
+                        <p style={{ ...styles.adLabel, marginBottom: "8px", fontSize: "10px" }}>— Sponsored —</p>
                         <AdsterraBanner width={320} height={50} keyId="7f2c8c024d991d50a6b11ffa7675c061" />
-
                       </div>
                     )}
                   </React.Fragment>
@@ -764,10 +762,29 @@ export default function Dashboard() {
         </div>
 
         <div style={styles.sidebar}>
+          {/* ✅ ADSTERRA 300x250 BANNER - First (KEPT) */}
           <div style={styles.adContainer}>
             <p style={styles.adLabel}>— Sponsored —</p>
             <AdsterraBanner width={300} height={250} keyId="c79b11868ca9e69eb48972d1fa68174c" />
           </div>
+
+          {/* ✅ COMMENTED OUT: Second sidebar ad (to prevent UX clutter) */}
+          {/* 
+          <div style={styles.adContainer}>
+            <p style={styles.adLabel}>— Sponsored —</p>
+            <AdsterraBanner width={300} height={250} keyId="c79b11868ca9e69eb48972d1fa68174c" />
+          </div>
+          */}
+
+          {/* ✅ COMMENTED OUT: Sponsored Card (to avoid looking fake) */}
+          {/* 
+          <div style={{...styles.sponsoredCard, display: "block"}}>
+            <div style={styles.sponsoredBadge}>Sponsored</div>
+            <h4 style={styles.sponsoredTitle}>Senior Developer</h4>
+            <p style={styles.sponsoredCompany}>Google</p>
+            <p style={styles.sponsoredCta}>Apply Now</p>
+          </div>
+          */}
         </div>
       </div>
     </div>
