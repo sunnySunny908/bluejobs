@@ -767,24 +767,6 @@ export default function Dashboard() {
             <p style={styles.adLabel}>— Sponsored —</p>
             <AdsterraBanner width={300} height={250} keyId="c79b11868ca9e69eb48972d1fa68174c" />
           </div>
-
-          {/* ✅ COMMENTED OUT: Second sidebar ad (to prevent UX clutter) */}
-          {/* 
-          <div style={styles.adContainer}>
-            <p style={styles.adLabel}>— Sponsored —</p>
-            <AdsterraBanner width={300} height={250} keyId="c79b11868ca9e69eb48972d1fa68174c" />
-          </div>
-          */}
-
-          {/* ✅ COMMENTED OUT: Sponsored Card (to avoid looking fake) */}
-          {/* 
-          <div style={{...styles.sponsoredCard, display: "block"}}>
-            <div style={styles.sponsoredBadge}>Sponsored</div>
-            <h4 style={styles.sponsoredTitle}>Senior Developer</h4>
-            <p style={styles.sponsoredCompany}>Google</p>
-            <p style={styles.sponsoredCta}>Apply Now</p>
-          </div>
-          */}
         </div>
       </div>
     </div>
