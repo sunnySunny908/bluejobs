@@ -705,7 +705,8 @@ export default function Dashboard() {
                         flexDirection: "column", 
                         alignItems: "center", 
                         justifyContent: "center",
-                        minHeight: "90px"
+                        minHeight: "90px",
+                        margin: "12px 0"
                       }}>
                         <p style={{ ...styles.adLabel, marginBottom: "8px", fontSize: "10px" }}>— Sponsored —</p>
                         <AdsterraBanner width={320} height={50} keyId="7f2c8c024d991d50a6b11ffa7675c061" />
