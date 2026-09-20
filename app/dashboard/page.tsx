@@ -5,12 +5,15 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import AdUnit from "../components/AdUnit";
 
-// ✅ Adsterra Banner Helper Component
-function AdsterraBanner({ width, height, keyId }: { width: number; height: number; keyId: string }) {
+// ✅ UPDATED: Adsterra Banner Helper Component with unique IDs for multiple ads
+function AdsterraBanner({ width, height, keyId, uniqueId }: { width: number; height: number; keyId: string; uniqueId: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
+
+    // Clear previous content
+    containerRef.current.innerHTML = '';
 
     (window as any).atOptions = {
       'key': keyId,
@@ -23,6 +26,7 @@ function AdsterraBanner({ width, height, keyId }: { width: number; height: numbe
     const script = document.createElement('script');
     script.src = `https://www.highrevenueformat.com/${keyId}/invoke.js`;
     script.async = true;
+    script.id = `adsterra-script-${uniqueId}`;
     containerRef.current.appendChild(script);
 
     return () => {
@@ -30,9 +34,9 @@ function AdsterraBanner({ width, height, keyId }: { width: number; height: numbe
         containerRef.current.innerHTML = '';
       }
     };
-  }, [keyId, width, height]);
+  }, [keyId, width, height, uniqueId]);
 
-  return <div ref={containerRef} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '0', overflow: 'hidden' }} />;
+  return <div ref={containerRef} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '0', overflow: 'hidden', minHeight: `${height}px` }} />;
 }
 
 const trustedCompanies = [
@@ -109,7 +113,7 @@ export default function Dashboard() {
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [manualLocation, setManualLocation] = useState<string>("");
   
-  // ✅ NEW: State for Candidate Name, Salary and Negotiation Data
+  // ✅ State for Candidate Name, Salary and Negotiation Data
   const [candidateName, setCandidateName] = useState<string>("");
   const [salaryData, setSalaryData] = useState<any>(null);
   const [negotiationTip, setNegotiationTip] = useState<string>("");
@@ -302,7 +306,7 @@ export default function Dashboard() {
         setJobs(data.matchedJobs || []);
         setAppliedJobs(new Set());
         
-        // ✅ NEW: Set candidate name and salary data from API response
+        // ✅ Set candidate name and salary data from API response
         setCandidateName(data.candidateFirstName || "");
         setSalaryData(data.salaryEstimate || null);
         setNegotiationTip(data.negotiationTip || "");
@@ -399,24 +403,6 @@ export default function Dashboard() {
           ))}
         </div>
       </div>
-
-      <nav style={styles.navbar}>
-        <div style={styles.navContent}>
-          <div style={styles.logo}>
-            <span style={{ color: "#f59e0b" }}>job</span>
-            <span style={{ color: "#0b4df5" }}>switchers</span>
-            <span style={{ color: "#ffffff" }}>.com</span>
-          </div>
-          <div style={styles.navLinks}>
-            <a href="/dashboard" style={{ ...styles.navLink, ...styles.activeNavLink }}>Dashboard</a>
-            {session && (
-              <button onClick={() => router.push("/api/auth/signout")} style={styles.logoutBtn}>
-                Logout
-              </button>
-            )}
-          </div>
-        </div>
-      </nav>
 
       <div style={styles.mainLayout}>
         <div style={styles.contentArea}>
@@ -581,7 +567,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* ✅ NEW: AI MARKET VALUE & SALARY CARD WITH PERSONALIZED NAME */}
+          {/* ✅ AI MARKET VALUE & SALARY CARD WITH PERSONALIZED NAME */}
           {salaryData && salaryData.min > 0 && (
             <div style={{
               position: "relative",
@@ -698,8 +684,8 @@ export default function Dashboard() {
                       </button>
                     </div>
                     
-                    {/* ✅ PRODUCTION READY: ADSTERRA 320x50 BANNER - Repeats EVERY 5th job naturally */}
-                    {(idx + 1) % 5 === 0 && (
+                    {/* ✅ UPDATED: AD appears after 1st, 4th, 7th, 10th jobs with unique IDs */}
+                    {idx % 3 === 0 && idx < jobs.length - 1 && (
                       <div style={{ 
                         ...styles.jobCard, 
                         padding: "12px", 
@@ -711,7 +697,12 @@ export default function Dashboard() {
                         margin: "12px 0"
                       }}>
                         <p style={{ ...styles.adLabel, marginBottom: "8px", fontSize: "10px" }}>— Sponsored —</p>
-                        <AdsterraBanner width={320} height={50} keyId="7f2c8c024d991d50a6b11ffa7675c061" />
+                        <AdsterraBanner 
+                          width={320} 
+                          height={50} 
+                          keyId="7f2c8c024d991d50a6b11ffa7675c061" 
+                          uniqueId={`job-ad-${idx}`}
+                        />
                       </div>
                     )}
                   </React.Fragment>
@@ -765,7 +756,12 @@ export default function Dashboard() {
           {/* ✅ ADSTERRA 300x250 BANNER - First (KEPT) */}
           <div style={styles.adContainer}>
             <p style={styles.adLabel}>— Sponsored —</p>
-            <AdsterraBanner width={300} height={250} keyId="c79b11868ca9e69eb48972d1fa68174c" />
+            <AdsterraBanner 
+              width={300} 
+              height={250} 
+              keyId="c79b11868ca9e69eb48972d1fa68174c" 
+              uniqueId="sidebar-ad-1"
+            />
           </div>
         </div>
       </div>
@@ -863,10 +859,10 @@ const styles: { [key: string]: React.CSSProperties } = {
   navbar: {
     position: "sticky",
     zIndex: 10,
-    background: "rgba(15, 23, 42, 0.5)",
+    background: "rgb(255, 255, 255)",
     backdropFilter: "blur(30px)",
     padding: "12px 16px",
-    borderBottom: "1px solid rgba(255,255,255,0.04)",
+    borderBottom: "1px solid rgb(255, 254, 254)",
     top: 0,
   },
   navContent: {
@@ -893,8 +889,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     transition: "color 0.3s",
   },
   activeNavLink: {
-    color: "#f59e0b",
-    borderBottom: "2px solid #f59e0b",
+    color: "#01020e",
+    borderBottom: "2px solid #fffefd",
     paddingBottom: 4,
   },
   logoutBtn: {
