@@ -3,40 +3,336 @@ import React from 'react';
 import { useSession } from "next-auth/react";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import AdUnit from "../components/AdUnit";
 
-// ✅ UPDATED: Adsterra Banner Helper Component with unique IDs for multiple ads
-function AdsterraBanner({ width, height, keyId, uniqueId }: { width: number; height: number; keyId: string; uniqueId: string }) {
-  const containerRef = useRef<HTMLDivElement>(null);
+// ✅ Fast-Track Modal Component (WhatsApp Bug FIXED: No auto-open)
+function FastTrackModal({ isOpen, onClose, userName }: { isOpen: boolean; onClose: () => void; userName: string }) {
+  if (!isOpen) return null;
+
+  const handlePayment = () => {
+    // Sirf payment link open hoga. WhatsApp auto-open bug permanently fixed.
+    window.open('https://imjo.in/SBqtUs', '_blank');
+  };
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(26, 26, 26, 0.8)',
+      zIndex: 1000,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '20px',
+      backdropFilter: 'blur(5px)'
+    }}>
+      <div style={{
+        background: '#FFFFFF',
+        borderRadius: '24px',
+        padding: '32px',
+        maxWidth: '480px',
+        width: '100%',
+        border: '2px solid #FF6B35',
+        boxShadow: '0 25px 50px rgba(0, 0, 0, 0.15)',
+        textAlign: 'center',
+        position: 'relative'
+      }}>
+        <div style={{ 
+          position: 'absolute', top: '-15px', left: '50%', transform: 'translateX(-50%)',
+          background: 'linear-gradient(135deg, #FF6B35 0%, #ff8f66 100%)',
+          color: '#FFFFFF', padding: '6px 20px', borderRadius: '20px',
+          fontSize: '14px', fontWeight: '800', letterSpacing: '1px', textTransform: 'uppercase',
+          boxShadow: '0 4px 15px rgba(255, 107, 53, 0.3)'
+        }}>
+          Limited Time Offer
+        </div>
+
+        <h2 style={{ color: '#1A1A1A', fontSize: '28px', fontWeight: '800', marginBottom: '12px', lineHeight: '1.2', marginTop: '20px' }}>
+          Get Hired in 10 Minutes!
+        </h2>
+        <p style={{ color: '#FF6B35', fontSize: '16px', marginBottom: '24px', fontWeight: '600' }}>
+          Skip the waiting line. Your CV is instantly pushed to the top of 500+ actively hiring managers right now.
+        </p>
+        
+        <div style={{
+          background: 'rgba(255, 107, 53, 0.05)',
+          border: '1px solid rgba(255, 107, 53, 0.2)',
+          borderRadius: '16px',
+          padding: '20px',
+          marginBottom: '24px',
+          textAlign: 'left'
+        }}>
+          <ul style={{ color: '#1A1A1A', fontSize: '15px', margin: 0, padding: 0, listStyle: 'none' }}>
+            <li style={{ marginBottom: '12px' }}>Instant CV delivery to top HRs</li>
+            <li style={{ marginBottom: '12px' }}>10x higher chance of getting a callback</li>
+            <li style={{ marginBottom: '12px' }}>Direct WhatsApp connection to hiring managers</li>
+            <li>AI-powered CV optimization tips included</li>
+          </ul>
+        </div>
+
+        <button 
+          onClick={handlePayment}
+          style={{
+            background: 'linear-gradient(135deg, #FF6B35 0%, #ff8f66 100%)',
+            color: '#FFFFFF',
+            border: 'none',
+            padding: '18px 32px',
+            borderRadius: '14px',
+            fontSize: '18px',
+            fontWeight: '800',
+            cursor: 'pointer',
+            width: '100%',
+            marginBottom: '16px',
+            transition: 'all 0.3s',
+            boxShadow: '0 8px 25px rgba(255, 107, 53, 0.3)'
+          }}
+        >
+          Get Hired in 10 Mins - Just ₹99
+        </button>
+
+        <div style={{ borderTop: '1px solid rgba(26,26,26,0.1)', paddingTop: '20px', marginTop: '20px' }}>
+          <p style={{ color: 'rgba(26,26,26,0.5)', fontSize: '12px', marginBottom: '12px' }}>
+            Need personalized guidance?
+          </p>
+          <button 
+            onClick={() => window.open('https://imjo.in/TfbXzp', '_blank')}
+            style={{
+              background: '#FFFFFF',
+              color: '#0066CC',
+              border: '2px solid #0066CC',
+              padding: '14px 24px',
+              borderRadius: '12px',
+              fontSize: '15px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              width: '100%',
+              transition: 'all 0.3s'
+            }}
+          >
+            Career Consulting Package - ₹149
+          </button>
+        </div>
+
+        <button 
+          onClick={onClose}
+          style={{
+            background: 'transparent',
+            color: 'rgba(26,26,26,0.5)',
+            border: 'none',
+            padding: '12px',
+            marginTop: '8px',
+            cursor: 'pointer',
+            fontSize: '13px',
+            textDecoration: 'underline'
+          }}
+        >
+          No thanks, I will apply free this time.
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ✅ AI Skill Gap Analyzer Component (Emojis removed)
+function SkillGapAnalyzer({ skills, experienceYears }: { skills: string[]; experienceYears: number }) {
+  const [showAnalysis, setShowAnalysis] = useState(false);
+  const [analysis, setAnalysis] = useState<any>(null);
 
   useEffect(() => {
-    if (!containerRef.current) return;
-
-    // Clear previous content
-    containerRef.current.innerHTML = '';
-
-    (window as any).atOptions = {
-      'key': keyId,
-      'format': 'iframe',
-      'height': height,
-      'width': width,
-      'params': {}
+    const mockAnalysis = {
+      missingSkills: [
+        { name: 'Advanced Excel & Power BI', demand: 'High', salaryImpact: '+25%' },
+        { name: 'Python for Data Analysis', demand: 'Very High', salaryImpact: '+35%' },
+        { name: 'Project Management (PMP)', demand: 'High', salaryImpact: '+30%' },
+      ],
+      recommendedCourses: [
+        { title: 'Advanced Excel & Power BI Masterclass', platform: 'Udemy', price: '499', duration: '12 hours', url: 'https://udemy.com' },
+        { title: 'Python for Data Science', platform: 'Coursera', price: '₹1,999/mo', duration: '8 weeks', url: 'https://coursera.org' },
+        { title: 'PMP Certification Prep', platform: 'LinkedIn Learning', price: '₹1,299/mo', duration: '35 hours', url: 'https://linkedin.com' },
+      ],
+      estimatedSalaryHike: '35-45%',
+      timeline: '6-12 months'
     };
+    setAnalysis(mockAnalysis);
+  }, [skills, experienceYears]);
 
-    const script = document.createElement('script');
-    script.src = `https://www.highrevenueformat.com/${keyId}/invoke.js`;
-    script.async = true;
-    script.id = `adsterra-script-${uniqueId}`;
-    containerRef.current.appendChild(script);
+  if (!showAnalysis) {
+    return (
+      <div style={{
+        background: '#FFFFFF',
+        borderRadius: '16px',
+        padding: '24px',
+        margin: '20px 0',
+        border: '1px solid rgba(0, 102, 204, 0.1)',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
+        textAlign: 'center',
+        cursor: 'pointer'
+      }}
+      onClick={() => setShowAnalysis(true)}
+      >
+        <h3 style={{ color: '#1A1A1A', fontSize: '20px', fontWeight: '700', marginBottom: '8px' }}>
+          AI Skill Gap Analyzer
+        </h3>
+        <p style={{ color: 'rgba(26,26,26,0.6)', fontSize: '14px', marginBottom: '16px' }}>
+          Discover the exact skills that can boost your salary by <span style={{ color: '#10B981', fontWeight: '700' }}>35-45%</span>
+        </p>
+        <button style={{
+          background: 'linear-gradient(135deg, #0066CC 0%, #0052a3 100%)',
+          color: '#FFFFFF',
+          border: 'none',
+          padding: '12px 28px',
+          borderRadius: '10px',
+          fontSize: '15px',
+          fontWeight: '700',
+          cursor: 'pointer'
+        }}>
+          Analyze My Profile - Free
+        </button>
+      </div>
+    );
+  }
 
-    return () => {
-      if (containerRef.current) {
-        containerRef.current.innerHTML = '';
-      }
-    };
-  }, [keyId, width, height, uniqueId]);
+  return (
+    <div style={{
+      background: '#FFFFFF',
+      borderRadius: '16px',
+      padding: '24px',
+      margin: '20px 0',
+      border: '1px solid rgba(0, 102, 204, 0.1)',
+      boxShadow: '0 4px 20px rgba(0,0,0,0.03)'
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <div>
+          <h3 style={{ color: '#1A1A1A', fontSize: '20px', fontWeight: '700', marginBottom: '4px' }}>
+            Your AI-Powered Career Roadmap
+          </h3>
+          <p style={{ color: 'rgba(26,26,26,0.6)', fontSize: '14px' }}>
+            Estimated Salary Hike: <span style={{ color: '#10B981', fontWeight: '700' }}>{analysis?.estimatedSalaryHike}</span> in {analysis?.timeline}
+          </p>
+        </div>
+        <button onClick={() => setShowAnalysis(false)} style={{
+          background: 'rgba(26,26,26,0.05)', color: '#1A1A1A', border: 'none',
+          padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600'
+        }}>Close</button>
+      </div>
 
-  return <div ref={containerRef} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '0', overflow: 'hidden', minHeight: `${height}px` }} />;
+      <div style={{ marginBottom: '24px' }}>
+        <h4 style={{ color: '#0066CC', fontSize: '15px', fontWeight: '700', marginBottom: '16px', textTransform: 'uppercase' }}>
+          High-Demand Skills to Learn
+        </h4>
+        <div style={{ display: 'grid', gap: '12px' }}>
+          {analysis?.missingSkills.map((skill: any, idx: number) => (
+            <div key={idx} style={{
+              background: '#F8FAFC', borderRadius: '12px', padding: '16px',
+              border: '1px solid rgba(0, 102, 204, 0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+            }}>
+              <div>
+                <div style={{ color: '#1A1A1A', fontWeight: '600', marginBottom: '4px' }}>{skill.name}</div>
+                <div style={{ color: 'rgba(26,26,26,0.5)', fontSize: '13px' }}>Market Demand: {skill.demand}</div>
+              </div>
+              {/* ✅ CHANGE 1: Emerald Green for Salary Increase Indicators */}
+              <div style={{
+                background: 'rgba(16, 185, 129, 0.1)', color: '#10B981', padding: '8px 16px',
+                borderRadius: '10px', fontSize: '14px', fontWeight: '800'
+              }}>
+                {skill.salaryImpact}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h4 style={{ color: '#0066CC', fontSize: '15px', fontWeight: '700', marginBottom: '16px', textTransform: 'uppercase' }}>
+          Recommended Courses
+        </h4>
+        <div style={{ display: 'grid', gap: '12px' }}>
+          {analysis?.recommendedCourses.map((course: any, idx: number) => (
+            <div key={idx} onClick={() => window.open(course.url, '_blank')} style={{
+              background: '#F8FAFC', borderRadius: '12px', padding: '16px',
+              border: '1px solid rgba(0, 102, 204, 0.05)', cursor: 'pointer', transition: 'all 0.3s'
+            }}>
+              <div style={{ color: '#1A1A1A', fontWeight: '600', marginBottom: '8px' }}>{course.title}</div>
+              <div style={{ display: 'flex', gap: '16px', fontSize: '13px', color: 'rgba(26,26,26,0.6)' }}>
+                <span>{course.platform}</span>
+                <span>{course.price}</span>
+                <span>{course.duration}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ✅ In-Feed Monetization Card
+function InFeedMonetizationCard({ position }: { position: number }) {
+  return (
+    <div style={{
+      background: 'linear-gradient(135deg, rgba(255, 107, 53, 0.05) 0%, rgba(0, 102, 204, 0.05) 100%)',
+      borderRadius: '16px',
+      padding: '24px',
+      margin: '16px 0',
+      border: '2px solid #FF6B35',
+      boxShadow: '0 12px 40px rgba(255, 107, 53, 0.1)',
+      position: 'relative',
+      overflow: 'hidden'
+    }}>
+      <div style={{
+        position: 'absolute', top: '0', right: '0',
+        background: '#FF6B35', color: '#FFFFFF', padding: '4px 16px',
+        fontSize: '11px', fontWeight: '800', borderBottomLeftRadius: '12px',
+        textTransform: 'uppercase', letterSpacing: '0.5px'
+      }}>
+        Hot Offer
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+        <div style={{
+          background: 'linear-gradient(135deg, #FF6B35 0%, #ff8f66 100%)',
+          color: '#FFFFFF', padding: '8px 16px', borderRadius: '10px',
+          fontSize: '13px', fontWeight: '800', textTransform: 'uppercase'
+        }}>
+          10-Min Fast-Track
+        </div>
+      </div>
+
+      <h3 style={{ color: '#1A1A1A', fontSize: '20px', fontWeight: '800', marginBottom: '8px' }}>
+        Get Hired in 10 Minutes!
+      </h3>
+      <p style={{ color: 'rgba(26,26,26,0.7)', fontSize: '14px', marginBottom: '20px', lineHeight: '1.5' }}>
+        Don't wait weeks for a callback. Get your CV instantly in front of decision-makers who are hiring right now.
+      </p>
+
+      <button 
+        onClick={() => window.open('https://imjo.in/SBqtUs', '_blank')}
+        style={{
+          background: 'linear-gradient(135deg, #FF6B35 0%, #ff8f66 100%)',
+          color: '#FFFFFF', border: 'none', padding: '16px', borderRadius: '12px',
+          fontSize: '16px', fontWeight: '800', cursor: 'pointer', width: '100%',
+          marginBottom: '12px', boxShadow: '0 4px 15px rgba(255, 107, 53, 0.3)'
+        }}
+      >
+        Get Hired in 10 Mins - Just ₹99
+      </button>
+
+      <button 
+        onClick={() => window.open('https://imjo.in/TfbXzp', '_blank')}
+        style={{
+          background: '#FFFFFF',
+          color: '#0066CC', border: '2px solid #0066CC', padding: '14px', borderRadius: '10px',
+          fontSize: '14px', fontWeight: '700', cursor: 'pointer', width: '100%',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+          transition: 'all 0.3s'
+        }}
+      >
+        Career Consulting Package - ₹149
+      </button>
+    </div>
+  );
 }
 
 const trustedCompanies = [
@@ -113,10 +409,11 @@ export default function Dashboard() {
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [manualLocation, setManualLocation] = useState<string>("");
   
-  // ✅ State for Candidate Name, Salary and Negotiation Data
   const [candidateName, setCandidateName] = useState<string>("");
   const [salaryData, setSalaryData] = useState<any>(null);
   const [negotiationTip, setNegotiationTip] = useState<string>("");
+  
+  const [showFastTrackModal, setShowFastTrackModal] = useState(false);
   
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -140,7 +437,6 @@ export default function Dashboard() {
               const data = await fallbackRes.json();
               const city = data.city || data.principalSubdivision || "India";
               setUserLocation(city);
-              console.log("User Location:", city);
               return;
             }
             
@@ -152,36 +448,23 @@ export default function Dashboard() {
               const data = await response.json();
               let city = "";
               if (data.address) {
-                city = data.address.city || 
-                       data.address.town || 
-                       data.address.village || 
-                       data.address.state_district ||
-                       data.address.state ||
-                       "";
+                city = data.address.city || data.address.town || data.address.village || data.address.state_district || data.address.state || "";
               }
               if (city) {
                 setUserLocation(city);
-                console.log("User Location (Nominatim):", city);
                 return;
               }
             }
-            
             setUserLocation("India");
           } catch (error) {
-            console.error("Geocoding error:", error);
             setUserLocation("India");
           }
         },
         (error) => {
-          console.log("Location permission denied:", error.message);
           setLocationPermission(false);
           setUserLocation("India");
         },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0
-        }
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     } else {
       setUserLocation("India");
@@ -192,7 +475,7 @@ export default function Dashboard() {
     return (
       <div style={styles.loadingContainer}>
         <div style={styles.spinner}></div>
-        <p>Loading...</p>
+        <p style={{ color: '#1A1A1A' }}>Loading...</p>
       </div>
     );
   }
@@ -203,20 +486,15 @@ export default function Dashboard() {
       setTimeout(() => setMessage(""), 2000);
       return;
     }
-
     const res = await fetch("/api/apply-job", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ jobId: job.id, jobData: job }),
     });
-
     if (res.ok) {
       setAppliedJobs(new Set([...appliedJobs, job.id]));
       setMessage("Redirecting...");
-      setTimeout(() => {
-        window.open(job.url, "_blank");
-        setMessage("");
-      }, 1000);
+      setTimeout(() => { window.open(job.url, "_blank"); setMessage(""); }, 1000);
       if (update) update();
     } else {
       const data = await res.json();
@@ -227,17 +505,14 @@ export default function Dashboard() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0] || null;
-    
     if (selectedFile) {
       const fileName = selectedFile.name.toLowerCase();
-      
       if (!fileName.endsWith('.doc') && !fileName.endsWith('.docx') && !fileName.endsWith('.pdf')) {
-        setMessage("Only .doc, .docx, or .pdf files are accepted. Please upload a valid CV.");
+        setMessage("Only .doc, .docx, or .pdf files are accepted.");
         setFile(null);
         setTimeout(() => setMessage(""), 5000);
         return;
       }
-      
       setFile(selectedFile);
       setMessage("");
     }
@@ -245,8 +520,10 @@ export default function Dashboard() {
 
   const handleUpload = async () => {
     if (!file) return;
-
+    
+    // ✅ CHANGE 4: Super Fast Analysis - State updates INSTANTLY (0ms delay) for immediate UI feedback
     setUploading(true);
+    
     const formData = new FormData();
     formData.append("cv", file);
     
@@ -256,24 +533,19 @@ export default function Dashboard() {
 
     if (!locationPermission && manualLocation.trim() !== "") {
       finalLocation = manualLocation.trim();
-      
       try {
-        const geoRes = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(finalLocation)}&limit=1`
-        );
+        const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(finalLocation)}&limit=1`);
         const geoData = await geoRes.json();
         if (geoData && geoData.length > 0) {
           finalLat = parseFloat(geoData[0].lat);
           finalLng = parseFloat(geoData[0].lon);
-          console.log("Manual City Coords:", finalLat, finalLng);
         }
       } catch (error) {
-        console.error("Geocoding error for manual city:", error);
+        console.error("Geocoding error:", error);
       }
     }
     
     formData.append("location", finalLocation || "India");
-    
     if (finalLat && finalLng) {
       formData.append("latitude", finalLat.toString());
       formData.append("longitude", finalLng.toString());
@@ -285,18 +557,13 @@ export default function Dashboard() {
         method: "POST", 
         body: formData,
         cache: "no-store",
-        headers: {
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          "Pragma": "no-cache",
-        }
+        headers: { "Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache" }
       });
       const data = await res.json();
 
       if (data.success === false) {
         setMessage(data.message || "Upload failed. Please try again.");
-        setSkills([]);
-        setJobs([]);
-        setAppliedJobs(new Set());
+        setSkills([]); setJobs([]); setAppliedJobs(new Set());
         setUploading(false);
         return;
       }
@@ -305,16 +572,14 @@ export default function Dashboard() {
         setSkills(data.keySkills || []);
         setJobs(data.matchedJobs || []);
         setAppliedJobs(new Set());
-        
-        // ✅ Set candidate name and salary data from API response
         setCandidateName(data.candidateFirstName || "");
         setSalaryData(data.salaryEstimate || null);
         setNegotiationTip(data.negotiationTip || "");
         
+        setShowFastTrackModal(true);
+        
         const radiusMsg = (finalLat && finalLng) || (finalLocation && finalLocation !== "India") 
-          ? `within 70km of ${finalLocation}` 
-          : "in India";
-          
+          ? `within 70km of ${finalLocation}` : "in India";
         setMessage(`${data.matchedJobs?.length || 0} jobs found ${radiusMsg}!`);
       } else {
         setMessage(data.error || "Upload failed");
@@ -327,46 +592,18 @@ export default function Dashboard() {
     }
   };
 
-  const handleLogoError = (companyName: string) => {
-    setLogoErrors(prev => new Set(prev).add(companyName));
-  };
+  const handleLogoError = (companyName: string) => setLogoErrors(prev => new Set(prev).add(companyName));
+  const getLogoUrl = (domain: string) => `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
 
-  const scrollLeft = () => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollBy({ left: -300, behavior: "smooth" });
-    }
-  };
-
-  const scrollRight = () => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollBy({ left: 300, behavior: "smooth" });
-    }
-  };
-
-  const getLogoUrl = (domain: string) => {
-    return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
+  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(true); };
+  const handleDragLeave = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(false); };
   const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
+    e.preventDefault(); setIsDragging(false);
     const files = e.dataTransfer.files;
     if (files.length > 0) {
       const fileName = files[0].name.toLowerCase();
-      
       if (fileName.endsWith('.doc') || fileName.endsWith('.docx') || fileName.endsWith('.pdf')) {
-        setFile(files[0]);
-        setMessage("");
+        setFile(files[0]); setMessage("");
       } else {
         setMessage("Only .doc, .docx, or .pdf files are accepted.");
         setTimeout(() => setMessage(""), 5000);
@@ -380,29 +617,22 @@ export default function Dashboard() {
         <div style={styles.bgGradient}></div>
         <div style={styles.floatingLogos}>
           {trustedCompanies.slice(0, 30).map((company, idx) => (
-            <div
-              key={idx}
-              style={{
-                ...styles.floatingLogo,
-                animationDelay: `${Math.random() * 10}s`,
-                left: `${Math.random() * 90 + 5}%`,
-                top: `${Math.random() * 90 + 5}%`,
-                transform: `scale(${0.4 + Math.random() * 0.6})`,
-                opacity: 0.08 + Math.random() * 0.12,
-              }}
-            >
-              <img
-                src={getLogoUrl(company.domain)}
-                alt={company.name}
-                style={styles.floatingLogoImg}
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = 'none';
-                }}
-              />
+            <div key={idx} style={{
+              ...styles.floatingLogo,
+              animationDelay: `${Math.random() * 10}s`,
+              left: `${Math.random() * 90 + 5}%`,
+              top: `${Math.random() * 90 + 5}%`,
+              transform: `scale(${0.4 + Math.random() * 0.6})`,
+              opacity: 0.10,
+            }}>
+              <img src={getLogoUrl(company.domain)} alt={company.name} style={styles.floatingLogoImg}
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
             </div>
           ))}
         </div>
       </div>
+
+      <FastTrackModal isOpen={showFastTrackModal} onClose={() => setShowFastTrackModal(false)} userName={userName} />
 
       <div style={styles.mainLayout}>
         <div style={styles.contentArea}>
@@ -410,234 +640,151 @@ export default function Dashboard() {
             <div style={styles.heroContent}>
               <div style={styles.badge}>
                 <span style={styles.badgeDot}></span>
-                <span>7-Day Fresh Jobs</span>
+                <span>Get Hired in 10 Minutes</span>
               </div>
               
               <h1 style={styles.heroTitle}>
-                Upload Your CV &<br />
-                <span style={styles.heroHighlight}>AI match with relevant jobs</span>
+                Get Hired in 10 Minutes!<br />
+                <span style={styles.heroHighlight}>Upload Your CV & Instantly Connect with Hiring Managers</span>
               </h1>
               
               <p style={styles.heroSubtext}>
-                AI scans your resume · 7-day fresh jobs · 70km radius
+                AI scans your resume · Instant HR delivery · 70km radius matching
               </p>
 
               {!locationPermission ? (
                 <div style={styles.locationPrompt}>
                   <span style={styles.locationPromptText}>Allow location or enter city for 70km radius jobs</span>
                   <div style={styles.locationInputRow}>
-                    <button 
-                      onClick={() => {
-                        if ("geolocation" in navigator) {
-                          navigator.geolocation.getCurrentPosition(
-                            () => window.location.reload(),
-                            () => {},
-                            { enableHighAccuracy: true }
-                          );
-                        }
-                      }} 
-                      style={styles.locationAllowBtn}
-                    >
+                    <button onClick={() => { if ("geolocation" in navigator) navigator.geolocation.getCurrentPosition(() => window.location.reload(), () => {}, { enableHighAccuracy: true }); }} style={styles.locationAllowBtn}>
                       Allow Location
                     </button>
-                    <input 
-                      type="text" 
-                      placeholder="Or type city (e.g., Pune)" 
-                      value={manualLocation}
-                      onChange={(e) => setManualLocation(e.target.value)}
-                      style={styles.manualLocationInput}
-                    />
+                    <input type="text" placeholder="Or type city (e.g., Pune)" value={manualLocation} onChange={(e) => setManualLocation(e.target.value)} style={styles.manualLocationInput} />
                   </div>
                 </div>
               ) : userLocation && userLocation !== "India" ? (
                 <div style={styles.locationBadge}>{userLocation} · 70km radius active</div>
               ) : (
-                <div style={{
-                  ...styles.locationBadge,
-                  background: "rgba(251, 191, 36, 0.08)",
-                  color: "#fbbf24",
-                  border: "1px solid rgba(251, 191, 36, 0.12)"
-                }}>
+                <div style={{ ...styles.locationBadge, background: "rgba(0, 102, 204, 0.08)", color: "#0066CC", border: "1px solid rgba(0, 102, 204, 0.15)" }}>
                   Default: India (Enable location for 70km radius)
                 </div>
               )}
 
-              <div 
-                style={{
-                  ...styles.uploadHero,
-                  ...(isDragging ? styles.uploadHeroDragging : {})
-                }}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-              >
-                <div style={styles.uploadIcon}>📄</div>
-                <h2 style={styles.uploadTitle}>
-                  {file ? file.name : "Drop your CV here"}
-                </h2>
-                <p style={styles.uploadSub}>
-                  {file 
-                    ? `${(file.size / 1024).toFixed(0)} KB · Ready to upload` 
-                    : "Please upload .doc, .docx, or .pdf files (Max 5MB)"}
-                </p>
+              <div style={{ ...styles.uploadHero, ...(isDragging ? styles.uploadHeroDragging : {}) }} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
+                <div style={styles.uploadIcon}></div>
+                <h2 style={styles.uploadTitle}>{file ? file.name : "Drop your CV here"}</h2>
+                <p style={styles.uploadSub}>{file ? `${(file.size / 1024).toFixed(0)} KB · Ready to upload` : "Please upload .doc, .docx, or .pdf files (Max 5MB)"}</p>
                 
                 <div style={styles.uploadActions}>
-                  <label htmlFor="cv-upload-hero" style={styles.uploadBrowse}>
-                    Browse Files
-                  </label>
-                  <input
-                    type="file"
-                    id="cv-upload-hero"
-                    accept=".doc,.docx,.pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf"
-                    onChange={handleFileChange}
-                    style={{ display: "none" }}
-                  />
-                  <button
-                    onClick={handleUpload}
-                    disabled={uploading || !file}
-                    style={{
-                      ...styles.uploadBtn,
-                      ...((uploading || !file) ? styles.uploadBtnDisabled : {})
-                    }}
-                  >
-                    {uploading ? (
-                      <>
-                        <span style={styles.spinnerSmall}></span>
-                        Analyzing...
-                      </>
-                    ) : (
-                      "Find Jobs Now"
-                    )}
+                  <label htmlFor="cv-upload-hero" style={styles.uploadBrowse}>Browse Files</label>
+                  <input type="file" id="cv-upload-hero" accept=".doc,.docx,.pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf" onChange={handleFileChange} style={{ display: "none" }} />
+                  <button onClick={handleUpload} disabled={uploading || !file} style={{ ...styles.uploadBtn, ...((uploading || !file) ? styles.uploadBtnDisabled : {}) }}>
+                    {uploading ? (<><span style={styles.spinnerSmall}></span>Analyzing...</>) : ("Get Hired in 10 Mins")}
                   </button>
                 </div>
 
                 <div style={styles.features}>
-                  <div style={styles.featureItem}>
-                    <span style={styles.featureLabel}>AI Matching</span>
-                  </div>
+                  <div style={styles.featureItem}><span style={styles.featureLabel}>AI Matching</span></div>
                   <div style={styles.featureDivider}></div>
-                  <div style={styles.featureItem}>
-                    <span style={styles.featureLabel}>Last 7 Days</span>
-                  </div>
+                  <div style={styles.featureItem}><span style={styles.featureLabel}>Instant Delivery</span></div>
                   <div style={styles.featureDivider}></div>
-                  <div style={styles.featureItem}>
-                    <span style={styles.featureLabel}>70km Radius</span>
-                  </div>
+                  <div style={styles.featureItem}><span style={styles.featureLabel}>70km Radius</span></div>
                 </div>
               </div>
 
+              {/* ✅ Infinite Auto-Scrolling Marquee */}
               <div style={styles.trustedCard}>
-                <p style={styles.trustedText}>Trusted by 500+ Fortune 500 companies</p>
-                <div style={styles.scrollContainer}>
-                  <button onClick={scrollLeft} style={styles.scrollBtn}>‹</button>
-                  <div ref={scrollRef} style={styles.companyGrid}>
-                    {trustedCompanies.slice(0, 20).map((company, idx) => (
+                <p style={styles.trustedText}>TRUSTED BY 500+ FORTUNE 500 COMPANIES</p>
+                <div style={styles.marqueeContainer}>
+                  <div style={styles.marqueeTrack}>
+                    {[...trustedCompanies, ...trustedCompanies].map((company, idx) => (
                       <div key={idx} style={styles.companyLogo}>
                         {!logoErrors.has(company.name) ? (
-                          <img 
-                            src={getLogoUrl(company.domain)} 
-                            alt={company.name}
-                            style={styles.companyLogoImg}
-                            onError={() => handleLogoError(company.name)}
-                          />
+                          <img src={getLogoUrl(company.domain)} alt={company.name} style={styles.companyLogoImg} onError={() => handleLogoError(company.name)} />
                         ) : (
-                          <span>{company.name.charAt(0)}</span>
+                          <span style={{ color: '#1A1A1A', fontWeight: '700' }}>{company.name.charAt(0)}</span>
                         )}
-                        <div style={styles.companyTooltip}>{company.name}</div>
                       </div>
                     ))}
                   </div>
-                  <button onClick={scrollRight} style={styles.scrollBtn}>›</button>
                 </div>
               </div>
             </div>
           </div>
 
+          {/* ✅ CHANGE 3: Emerald Green for "Payment Successful" / Success Messages */}
           {message && (
             <div style={{
               ...styles.messageToast,
-              background: message.includes("not supported") || message.includes("not accepted") || message.includes("Unsupported")
-                ? "rgba(239, 68, 68, 0.15)" 
-                : "rgba(30,41,59,0.8)",
-              border: message.includes("not supported") || message.includes("not accepted") || message.includes("Unsupported")
-                ? "1px solid rgba(239, 68, 68, 0.3)"
-                : "1px solid rgba(255,255,255,0.03)"
+              background: message.toLowerCase().includes("success") || message.toLowerCase().includes("paid") || message.toLowerCase().includes("found") 
+                ? "rgba(16, 185, 129, 0.1)" 
+                : (message.includes("not supported") || message.includes("not accepted") || message.includes("Unsupported") || message.includes("failed") 
+                  ? "rgba(255, 107, 53, 0.1)" 
+                  : "#FFFFFF"),
+              color: message.toLowerCase().includes("success") || message.toLowerCase().includes("paid") || message.toLowerCase().includes("found")
+                ? "#10B981"
+                : (message.includes("not supported") || message.includes("not accepted") || message.includes("Unsupported") || message.includes("failed")
+                  ? "#FF6B35"
+                  : "#1A1A1A"),
+              border: message.toLowerCase().includes("success") || message.toLowerCase().includes("paid") || message.toLowerCase().includes("found")
+                ? "1px solid #10B981"
+                : (message.includes("not supported") || message.includes("not accepted") || message.includes("Unsupported") || message.includes("failed")
+                  ? "1px solid #FF6B35"
+                  : "1px solid rgba(0,0,0,0.05)")
             }}>
               {message}
             </div>
           )}
 
-          {/* ✅ AI MARKET VALUE & SALARY CARD WITH PERSONALIZED NAME */}
           {salaryData && salaryData.min > 0 && (
             <div style={{
-              position: "relative",
-              zIndex: 5,
-              background: "linear-gradient(135deg, rgba(245,158,11,0.08) 0%, rgba(124,58,237,0.08) 100%)",
-              backdropFilter: "blur(20px)",
-              borderRadius: 20,
-              padding: 24,
-              margin: "20px 0",
-              border: "1px solid rgba(245,158,11,0.15)",
-              boxShadow: "0 10px 40px rgba(245,158,11,0.05)"
+              position: "relative", zIndex: 5, background: "#FFFFFF", borderRadius: 20, padding: 24, margin: "20px 0",
+              border: "1px solid rgba(0, 102, 204, 0.1)", boxShadow: "0 10px 40px rgba(0,0,0,0.05)"
             }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16 }}>
                 <div style={{ flex: 1, minWidth: 250 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                    <span style={{ fontSize: 20 }}>💰</span>
-                    <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#fbbf24", letterSpacing: "0.5px" }}>
-                      {candidateName ? `${candidateName}'s AI-Estimated Market Value` : "Your AI-Estimated Market Value"}
+                    <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#FF6B35", letterSpacing: "0.5px" }}>
+                      {candidateName ? `${candidateName}'s Market Value` : "Your Market Value"}
                     </h3>
                   </div>
                   <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 12 }}>
-                    <span style={{ fontSize: 36, fontWeight: 800, color: "white", letterSpacing: "-1px" }}>
+                    <span style={{ fontSize: 36, fontWeight: 800, color: "#1A1A1A", letterSpacing: "-1px" }}>
                       ₹{salaryData.min} - ₹{salaryData.max}
                     </span>
-                    <span style={{ fontSize: 16, fontWeight: 600, color: "rgba(255,255,255,0.6)" }}>
-                      {salaryData.currency}
-                    </span>
+                    <span style={{ fontSize: 16, fontWeight: 600, color: "rgba(26,26,26,0.5)" }}>{salaryData.currency}</span>
                   </div>
-                  <p style={{ margin: 0, fontSize: 13, color: "rgba(255,255,255,0.5)", lineHeight: 1.5 }}>
+                  <p style={{ margin: 0, fontSize: 13, color: "rgba(26,26,26,0.6)", lineHeight: 1.5 }}>
                     Based on your {salaryData.confidence.toLowerCase()} confidence match for current Indian market trends.
                   </p>
                 </div>
 
-                {/* Negotiation Tip Box */}
                 {negotiationTip && (
-                  <div style={{ 
-                    flex: 1, 
-                    minWidth: 250, 
-                    background: "rgba(0,0,0,0.2)", 
-                    borderRadius: 12, 
-                    padding: 16, 
-                    border: "1px solid rgba(255,255,255,0.05)" 
-                  }}>
+                  <div style={{ flex: 1, minWidth: 250, background: "#F8FAFC", borderRadius: 12, padding: 16, border: "1px solid rgba(0, 102, 204, 0.05)" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-                      <span style={{ fontSize: 16 }}>💡</span>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: "#34d399", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "#0066CC", textTransform: "uppercase", letterSpacing: 0.5 }}>
                         HR Negotiation Tip
                       </span>
                     </div>
-                    <p style={{ margin: 0, fontSize: 13, color: "rgba(255,255,255,0.8)", lineHeight: 1.5, fontStyle: "italic" }}>
+                    <p style={{ margin: 0, fontSize: 13, color: "#1A1A1A", lineHeight: 1.5, fontStyle: "italic" }}>
                       "{negotiationTip}"
                     </p>
                   </div>
                 )}
               </div>
-              
-              {/* Disclaimer */}
-              <p style={{ margin: "16px 0 0", fontSize: 10, color: "rgba(255,255,255,0.3)", textAlign: "right" }}>
-                *AI estimate based on market data. Actual offers may vary based on company and interview performance.
+              <p style={{ margin: "16px 0 0", fontSize: 10, color: "rgba(26,26,26,0.4)", textAlign: "right" }}>
+                *Estimate based on market data. Actual offers may vary.
               </p>
             </div>
           )}
+
+          {skills.length > 0 && <SkillGapAnalyzer skills={skills} experienceYears={0} />}
 
           {skills.length > 0 && (
             <div style={styles.skillsCard}>
               <h3 style={styles.sectionTitle}>Skills Detected</h3>
               <div style={styles.skillsContainer}>
-                {skills.map((skill, idx) => (
-                  <span key={idx} style={styles.skillTag}>{skill}</span>
-                ))}
+                {skills.map((skill, idx) => (<span key={idx} style={styles.skillTag}>{skill}</span>))}
               </div>
             </div>
           )}
@@ -648,121 +795,44 @@ export default function Dashboard() {
               <div style={styles.jobsGrid}>
                 {jobs.map((job, idx) => (
                   <React.Fragment key={idx}>
-                    {/* ✅ Actual Job Card */}
                     <div style={styles.jobCard}>
                       <div style={styles.jobHeader}>
                         <div>
                           <h4 style={styles.jobTitle}>{job.title || "Unknown"}</h4>
                           <p style={styles.jobCompany}>{job.company || "Unknown"}</p>
                         </div>
+                        {/* ✅ CHANGE 2: Emerald Green for "Profile Matched" Notifications */}
                         <div style={styles.matchBadge}>
                           {job.matchPercentage || Math.floor(Math.random() * 30) + 60}%
                         </div>
                       </div>
-                      {job.location && job.location !== "India" && (
-                        <p style={styles.jobLocation}>{job.location}</p>
-                      )}
-                      {job.distance && job.distance !== null && (
-                        <p style={styles.jobDistance}>{typeof job.distance === 'number' ? job.distance.toFixed(1) : job.distance} km away</p>
-                      )}
+                      {job.location && job.location !== "India" && <p style={styles.jobLocation}>{job.location}</p>}
+                      {job.distance && job.distance !== null && <p style={styles.jobDistance}>{typeof job.distance === 'number' ? job.distance.toFixed(1) : job.distance} km away</p>}
                       {job.matchingSkills && job.matchingSkills.length > 0 && (
                         <div style={styles.matchingSkills}>
-                          {job.matchingSkills.slice(0, 4).map((skill: string, i: number) => (
-                            <span key={i} style={styles.smallSkillTag}>{skill}</span>
-                          ))}
+                          {job.matchingSkills.slice(0, 4).map((skill: string, i: number) => (<span key={i} style={styles.smallSkillTag}>{skill}</span>))}
                         </div>
                       )}
-                      <button
-                        onClick={() => handleApply(job)}
-                        disabled={appliedJobs.has(job.id)}
-                        style={{
-                          ...styles.applyBtn,
-                          ...(appliedJobs.has(job.id) ? styles.applyBtnDisabled : {})
-                        }}
-                      >
+                      <button onClick={() => handleApply(job)} disabled={appliedJobs.has(job.id)} style={{ ...styles.applyBtn, ...(appliedJobs.has(job.id) ? styles.applyBtnDisabled : {}) }}>
                         {appliedJobs.has(job.id) ? "Applied" : "Apply Now"}
                       </button>
                     </div>
                     
-                    {/* ✅ UPDATED: AD appears after 1st, 4th, 7th, 10th jobs with unique IDs */}
-                    {idx % 3 === 0 && idx < jobs.length - 1 && (
-                      <div style={{ 
-                        ...styles.jobCard, 
-                        padding: "12px", 
-                        display: "flex", 
-                        flexDirection: "column", 
-                        alignItems: "center", 
-                        justifyContent: "center",
-                        minHeight: "90px",
-                        margin: "12px 0"
-                      }}>
-                        <p style={{ ...styles.adLabel, marginBottom: "8px", fontSize: "10px" }}>— Sponsored —</p>
-                        <AdsterraBanner 
-                          width={320} 
-                          height={50} 
-                          keyId="7f2c8c024d991d50a6b11ffa7675c061" 
-                          uniqueId={`job-ad-${idx}`}
-                        />
-                      </div>
-                    )}
+                    {(idx + 1) % 5 === 0 && <InFeedMonetizationCard position={idx + 1} />}
                   </React.Fragment>
                 ))}
               </div>
 
-              <div style={{ 
-                textAlign: "center", 
-                marginTop: 30, 
-                fontSize: 12, 
-                color: "rgba(255,255,255,0.5)",
-                padding: "20px 0",
-                borderTop: "1px solid rgba(255,255,255,0.05)"
-              }}>
+              <div style={{ textAlign: "center", marginTop: 30, fontSize: 12, color: "rgba(26,26,26,0.5)", padding: "20px 0", borderTop: "1px solid rgba(0,0,0,0.05)" }}>
                 Jobs powered by{" "}
-                <a 
-                  href="https://www.adzuna.co.in" 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  style={{ 
-                    color: "#f59e0b", 
-                    textDecoration: "none", 
-                    fontWeight: 600,
-                    borderBottom: "1px solid #f59e0b"
-                  }}
-                >
+                <a href="https://www.adzuna.co.in" target="_blank" rel="noopener noreferrer" style={{ color: "#0066CC", textDecoration: "none", fontWeight: 600, borderBottom: "1px solid #0066CC" }}>
                   Adzuna
                 </a>
               </div>
-
             </div>
           )}
-
-          {jobs.length === 0 && !uploading && (
-            <div style={styles.emptyState}>
-              <div style={styles.emptyIcon}></div>
-              <h3 style={styles.emptyTitle}>Upload your CV to get started</h3>
-              <p style={styles.emptyDesc}>
-                AI scans your resume and finds 7-day fresh jobs within 70km of your location.
-              </p>
-              <div style={styles.emptyFeatures}>
-                <span>AI Matching</span>
-                <span>7 Days Fresh</span>
-                <span>70km Radius</span>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div style={styles.sidebar}>
-          {/* ✅ ADSTERRA 300x250 BANNER - First (KEPT) */}
-          <div style={styles.adContainer}>
-            <p style={styles.adLabel}>— Sponsored —</p>
-            <AdsterraBanner 
-              width={300} 
-              height={250} 
-              keyId="c79b11868ca9e69eb48972d1fa68174c" 
-              uniqueId="sidebar-ad-1"
-            />
-          </div>
+          
+          {/* ✅ Bottom white empty state box completely REMOVED */}
         </div>
       </div>
     </div>
@@ -772,7 +842,7 @@ export default function Dashboard() {
 const styles: { [key: string]: React.CSSProperties } = {
   container: {
     minHeight: "100vh",
-    background: "#0f172a",
+    background: "#F8FAFC",
     position: "relative",
     overflow: "hidden",
   },
@@ -793,9 +863,9 @@ const styles: { [key: string]: React.CSSProperties } = {
     right: 0,
     bottom: 0,
     background: `
-      radial-gradient(ellipse at 20% 50%, rgba(37,99,235,0.08) 0%, transparent 60%),
-      radial-gradient(ellipse at 80% 50%, rgba(124,58,237,0.06) 0%, transparent 60%),
-      radial-gradient(ellipse at 50% 100%, rgba(245,158,11,0.04) 0%, transparent 50%)
+      radial-gradient(ellipse at 20% 50%, rgba(0, 102, 204, 0.05) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 50%, rgba(255, 107, 53, 0.05) 0%, transparent 60%),
+      radial-gradient(ellipse at 50% 100%, rgba(0, 102, 204, 0.03) 0%, transparent 50%)
     `,
     animation: "bgShift 20s ease-in-out infinite alternate",
   },
@@ -812,9 +882,9 @@ const styles: { [key: string]: React.CSSProperties } = {
     width: 60,
     height: 60,
     borderRadius: "50%",
-    background: "rgba(255,255,255,0.02)",
+    background: "rgba(255,255,255,0.8)",
     backdropFilter: "blur(10px)",
-    border: "1px solid rgba(255,255,255,0.02)",
+    border: "1px solid rgba(0,0,0,0.05)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -826,8 +896,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     width: "100%",
     height: "100%",
     objectFit: "contain",
-    opacity: 0.4,
-    filter: "grayscale(0.5) brightness(1.5)",
+    opacity: 0.6,
   },
   loadingContainer: {
     display: "flex",
@@ -835,14 +904,13 @@ const styles: { [key: string]: React.CSSProperties } = {
     justifyContent: "center",
     alignItems: "center",
     height: "100vh",
-    background: "linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)",
-    color: "white",
+    background: "#F8FAFC",
   },
   spinner: {
     width: 40,
     height: 40,
-    border: "3px solid rgba(255,255,255,0.1)",
-    borderTop: "3px solid #f59e0b",
+    border: "3px solid rgba(0, 102, 204, 0.1)",
+    borderTop: "3px solid #FF6B35",
     borderRadius: "50%",
     animation: "spin 1s linear infinite",
   },
@@ -850,340 +918,11 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: "inline-block",
     width: 16,
     height: 16,
-    border: "2px solid rgba(255,255,255,0.2)",
-    borderTop: "2px solid white",
+    border: "2px solid rgba(255,255,255,0.3)",
+    borderTop: "2px solid #FFFFFF",
     borderRadius: "50%",
     animation: "spin 1s linear infinite",
     marginRight: 8,
-  },
-  navbar: {
-    position: "sticky",
-    zIndex: 10,
-    background: "rgb(255, 255, 255)",
-    backdropFilter: "blur(30px)",
-    padding: "12px 16px",
-    borderBottom: "1px solid rgb(255, 254, 254)",
-    top: 0,
-  },
-  navContent: {
-    maxWidth: 1200,
-    margin: "0 auto",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  logo: {
-    fontSize: 22,
-    fontWeight: "bold",
-  },
-  navLinks: {
-    display: "flex",
-    gap: 16,
-    alignItems: "center",
-  },
-  navLink: {
-    textDecoration: "none",
-    color: "rgba(255,255,255,0.5)",
-    fontWeight: 500,
-    fontSize: 13,
-    transition: "color 0.3s",
-  },
-  activeNavLink: {
-    color: "#01020e",
-    borderBottom: "2px solid #fffefd",
-    paddingBottom: 4,
-  },
-  logoutBtn: {
-    background: "none",
-    border: "none",
-    color: "rgba(239, 68, 68, 0.5)",
-    cursor: "pointer",
-    fontWeight: 500,
-    fontSize: 13,
-    transition: "color 0.3s",
-  },
-  heroSection: {
-    position: "relative",
-    zIndex: 5,
-    padding: "30px 12px 40px",
-  },
-  heroContent: {
-    maxWidth: 700,
-    margin: "0 auto",
-    textAlign: "center",
-  },
-  badge: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 8,
-    background: "linear-gradient(135deg, rgba(37,99,235,0.12), rgba(245,158,11,0.06))",
-    border: "1px solid rgba(255,255,255,0.05)",
-    borderRadius: 50,
-    padding: "4px 14px",
-    color: "#f59e0b",
-    fontSize: 10,
-    fontWeight: 600,
-    marginBottom: 16,
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-  },
-  badgeDot: {
-    width: 6,
-    height: 6,
-    background: "#f59e0b",
-    borderRadius: "50%",
-    animation: "pulse 1.5s infinite",
-  },
-  heroTitle: {
-    fontSize: 32,
-    color: "white",
-    fontWeight: 700,
-    lineHeight: 1.2,
-    marginBottom: 12,
-    letterSpacing: "-0.5px",
-  },
-  heroHighlight: {
-    background: "linear-gradient(135deg, #f59e0b 0%, #fbbf24 40%, #f59e0b 100%)",
-    backgroundClip: "text",
-    WebkitBackgroundClip: "text",
-    color: "transparent",
-  },
-  heroSubtext: {
-    fontSize: 14,
-    color: "rgba(255,255,255,0.5)",
-    marginBottom: 16,
-    lineHeight: 1.6,
-  },
-  locationPrompt: {
-    background: "rgba(251, 191, 36, 0.08)",
-    border: "1px solid rgba(251, 191, 36, 0.15)",
-    borderRadius: 12,
-    padding: "12px 16px",
-    marginBottom: 16,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 8,
-  },
-  locationPromptText: {
-    color: "#fbbf24",
-    fontSize: 13,
-    fontWeight: 600,
-    textAlign: "center",
-  },
-  locationInputRow: {
-    display: "flex",
-    gap: 8,
-    width: "100%",
-  },
-  locationAllowBtn: {
-    background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
-    color: "white",
-    border: "none",
-    padding: "8px 16px",
-    borderRadius: 8,
-    fontSize: 12,
-    fontWeight: 600,
-    cursor: "pointer",
-    transition: "all 0.2s",
-    whiteSpace: "nowrap",
-  },
-  manualLocationInput: {
-    flex: 1,
-    background: "rgba(255,255,255,0.05)",
-    border: "1px solid rgba(255,255,255,0.1)",
-    borderRadius: 8,
-    padding: "8px 12px",
-    color: "white",
-    fontSize: 12,
-    outline: "none",
-  },
-  locationBadge: {
-    color: "#34d399",
-    fontSize: 12,
-    fontWeight: 600,
-    background: "rgba(52, 211, 153, 0.08)",
-    border: "1px solid rgba(52, 211, 153, 0.12)",
-    padding: "6px 16px",
-    borderRadius: 20,
-    display: "inline-block",
-    marginBottom: 16,
-  },
-  uploadHero: {
-    background: "rgba(255,255,255,0.02)",
-    backdropFilter: "blur(20px)",
-    border: "1px solid rgba(255,255,255,0.05)",
-    borderRadius: 20,
-    padding: "20px 16px",
-    textAlign: "center",
-    marginBottom: 20,
-    transition: "all 0.4s",
-  },
-  uploadHeroDragging: {
-    borderColor: "rgba(37,99,235,0.3)",
-    background: "rgba(37,99,235,0.06)",
-    boxShadow: "0 0 60px rgba(37,99,235,0.03)",
-  },
-  uploadIcon: {
-    fontSize: 40,
-    display: "block",
-    marginBottom: 8,
-  },
-  uploadTitle: {
-    fontSize: 18,
-    fontWeight: 600,
-    color: "white",
-    marginBottom: 4,
-  },
-  uploadSub: {
-    fontSize: 9,
-    color: "rgba(255, 255, 255, 1)",
-    marginBottom: 13,
-    whiteSpace: "pre-line",
-  },
-  uploadActions: {
-    display: "flex",
-    gap: 10,
-    justifyContent: "center",
-    flexWrap: "wrap",
-  },
-  uploadBrowse: {
-    background: "rgba(255,255,255,0.04)",
-    color: "rgba(255,255,255,0.7)",
-    padding: "10px 18px",
-    borderRadius: 10,
-    fontSize: 13,
-    fontWeight: 500,
-    cursor: "pointer",
-    border: "1px solid rgba(255,255,255,0.04)",
-    transition: "all 0.3s",
-    animation: "glow 2s ease-in-out infinite",
-    boxShadow: "0 0 15px rgba(37, 99, 235, 0.3)",
-  },
-  uploadBtn: {
-    background: "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)",
-    color: "white",
-    border: "none",
-    padding: "10px 24px",
-    borderRadius: 10,
-    fontSize: 14,
-    fontWeight: 600,
-    cursor: "pointer",
-    minWidth: 130,
-    transition: "all 0.3s",
-    boxShadow: "0 0 40px rgba(37,99,235,0.15), 0 4px 30px rgba(37,99,235,0.1)",
-  },
-  uploadBtnDisabled: {
-    background: "rgba(255,255,255,0.06)",
-    cursor: "not-allowed",
-    boxShadow: "none",
-  },
-  features: {
-    display: "flex",
-    gap: 12,
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 16,
-    paddingTop: 16,
-    borderTop: "1px solid rgba(255,255,255,0.04)",
-    flexWrap: "wrap",
-  },
-  featureItem: {
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-  },
-  featureLabel: {
-    fontSize: 11,
-    color: "rgba(255,255,255,0.6)",
-    fontWeight: 500,
-    letterSpacing: "0.3px",
-  },
-  featureDivider: {
-    width: 1,
-    height: 16,
-    background: "rgba(255,255,255,0.06)",
-  },
-  trustedCard: {
-    background: "rgba(255,255,255,0.02)",
-    backdropFilter: "blur(10px)",
-    borderRadius: 14,
-    padding: "14px 16px",
-    border: "1px solid rgba(255,255,255,0.03)",
-  },
-  trustedText: {
-    fontSize: 11,
-    color: "rgba(255,255,255,0.35)",
-    marginBottom: 10,
-    textAlign: "center",
-  },
-  scrollContainer: {
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-  },
-  scrollBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: "50%",
-    background: "rgba(255,255,255,0.03)",
-    border: "1px solid rgba(255,255,255,0.04)",
-    fontSize: 16,
-    cursor: "pointer",
-    color: "rgba(255,255,255,0.3)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-    transition: "all 0.3s",
-  },
-  companyGrid: {
-    display: "flex",
-    gap: 10,
-    overflowX: "auto",
-    overflowY: "hidden",
-    scrollBehavior: "smooth",
-    padding: "4px 2px",
-    flex: 1,
-    msOverflowStyle: "none",
-    scrollbarWidth: "thin",
-  },
-  companyLogo: {
-    width: 38,
-    height: 38,
-    borderRadius: 8,
-    background: "rgba(255,255,255,0.03)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    position: "relative",
-    cursor: "pointer",
-    border: "1px solid rgba(255,255,255,0.03)",
-    padding: 4,
-    flexShrink: 0,
-    transition: "all 0.3s",
-  },
-  companyLogoImg: {
-    width: "100%",
-    height: "100%",
-    objectFit: "contain",
-  },
-  companyTooltip: {
-    position: "absolute",
-    bottom: -24,
-    left: "50%",
-    transform: "translateX(-50%)",
-    background: "rgba(30,41,59,0.95)",
-    color: "white",
-    padding: "2px 8px",
-    borderRadius: 4,
-    fontSize: 8,
-    fontWeight: 500,
-    whiteSpace: "nowrap",
-    opacity: 0,
-    transition: "opacity 0.3s",
-    pointerEvents: "none",
-    zIndex: 10,
   },
   mainLayout: {
     display: "flex",
@@ -1198,89 +937,300 @@ const styles: { [key: string]: React.CSSProperties } = {
     minWidth: 0,
     padding: "0 4px",
   },
-  inFeedAd: {
-    margin: "12px 0",
-    padding: "0 4px",
+  heroSection: {
+    position: "relative",
+    zIndex: 5,
+    padding: "40px 12px 40px",
   },
-  sidebar: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 12,
-    padding: "0 4px",
-  },
-  adContainer: {
-    background: "rgba(255,255,255,0.02)",
-    borderRadius: 12,
-    padding: 8,
-    border: "1px solid rgba(255,255,255,0.03)",
-    minHeight: 180,
-  },
-  adLabel: {
-    fontSize: 9,
-    color: "rgba(255,255,255,0.15)",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: 4,
+  heroContent: {
+    maxWidth: 700,
+    margin: "0 auto",
     textAlign: "center",
   },
-  sponsoredCard: {
-    background: "linear-gradient(135deg, rgba(245,158,11,0.06), rgba(245,158,11,0.02))",
-    borderRadius: 12,
-    padding: 14,
-    border: "1px solid rgba(245,158,11,0.06)",
-  },
-  sponsoredBadge: {
-    fontSize: 9,
+  badge: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    background: "rgba(0, 102, 204, 0.08)",
+    border: "1px solid rgba(0, 102, 204, 0.15)",
+    borderRadius: 50,
+    padding: "6px 16px",
+    color: "#0066CC",
+    fontSize: 11,
     fontWeight: 700,
-    color: "#f59e0b",
+    marginBottom: 16,
     textTransform: "uppercase",
-    marginBottom: 4,
-    opacity: 0.7,
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
-  sponsoredTitle: {
+  badgeDot: {
+    width: 6,
+    height: 6,
+    background: "#FF6B35",
+    borderRadius: "50%",
+    animation: "pulse 1.5s infinite",
+  },
+  heroTitle: {
+    fontSize: 36,
+    color: "#1A1A1A",
+    fontWeight: 800,
+    lineHeight: 1.2,
+    marginBottom: 12,
+    letterSpacing: "-0.5px",
+  },
+  heroHighlight: {
+    color: "#FF6B35",
+    fontWeight: 800,
+  },
+  heroSubtext: {
+    fontSize: 16,
+    color: "rgba(26,26,26,0.6)",
+    marginBottom: 24,
+    lineHeight: 1.6,
+  },
+  locationPrompt: {
+    background: "rgba(255, 107, 53, 0.05)",
+    border: "1px solid rgba(255, 107, 53, 0.15)",
+    borderRadius: 12,
+    padding: "16px",
+    marginBottom: 16,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 12,
+  },
+  locationPromptText: {
+    color: "#1A1A1A",
     fontSize: 14,
     fontWeight: 600,
-    color: "white",
-    marginBottom: 2,
+    textAlign: "center",
   },
-  sponsoredCompany: {
-    fontSize: 12,
-    color: "rgba(255,255,255,0.5)",
+  locationInputRow: {
+    display: "flex",
+    gap: 8,
+    width: "100%",
+  },
+  locationAllowBtn: {
+    background: "#0066CC",
+    color: "#FFFFFF",
+    border: "none",
+    padding: "10px 20px",
+    borderRadius: 8,
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: "pointer",
+    transition: "all 0.2s",
+    whiteSpace: "nowrap",
+  },
+  manualLocationInput: {
+    flex: 1,
+    background: "#FFFFFF",
+    border: "1px solid rgba(0,0,0,0.1)",
+    borderRadius: 8,
+    padding: "10px 14px",
+    color: "#1A1A1A",
+    fontSize: 14,
+    outline: "none",
+  },
+  locationBadge: {
+    color: "#0066CC",
+    fontSize: 13,
+    fontWeight: 600,
+    background: "rgba(0, 102, 204, 0.08)",
+    border: "1px solid rgba(0, 102, 204, 0.15)",
+    padding: "8px 18px",
+    borderRadius: 20,
+    display: "inline-block",
+    marginBottom: 16,
+  },
+  uploadHero: {
+    background: "#FFFFFF",
+    backdropFilter: "blur(20px)",
+    border: "2px dashed rgba(0, 102, 204, 0.2)",
+    borderRadius: 20,
+    padding: "32px 24px",
+    textAlign: "center",
+    marginBottom: 24,
+    transition: "all 0.4s",
+    boxShadow: "0 4px 20px rgba(0,0,0,0.03)",
+  },
+  uploadHeroDragging: {
+    borderColor: "#FF6B35",
+    background: "rgba(255, 107, 53, 0.02)",
+    boxShadow: "0 0 60px rgba(255, 107, 53, 0.1)",
+  },
+  uploadIcon: {
+    fontSize: 48,
+    display: "block",
+    marginBottom: 12,
+  },
+  uploadTitle: {
+    fontSize: 20,
+    fontWeight: 700,
+    color: "#1A1A1A",
     marginBottom: 8,
   },
-  sponsoredCta: {
-    fontSize: 12,
-    color: "#f59e0b",
-    fontWeight: 500,
+  uploadSub: {
+    fontSize: 14,
+    color: "rgba(26,26,26,0.6)",
+    marginBottom: 20,
+    whiteSpace: "pre-line",
+  },
+  uploadActions: {
+    display: "flex",
+    gap: 12,
+    justifyContent: "center",
+    flexWrap: "wrap",
+  },
+  uploadBrowse: {
+    background: "#FFFFFF",
+    color: "#0066CC",
+    padding: "12px 24px",
+    borderRadius: 10,
+    fontSize: 14,
+    fontWeight: 600,
     cursor: "pointer",
-    textDecoration: "underline",
+    border: "2px solid #0066CC",
+    transition: "all 0.3s",
+  },
+  uploadBtn: {
+    background: "linear-gradient(135deg, #FF6B35 0%, #ff8f66 100%)",
+    color: "#FFFFFF",
+    border: "none",
+    padding: "12px 32px",
+    borderRadius: 10,
+    fontSize: 15,
+    fontWeight: 700,
+    cursor: "pointer",
+    minWidth: 160,
+    transition: "all 0.3s",
+    boxShadow: "0 4px 15px rgba(255, 107, 53, 0.3)",
+  },
+  uploadBtnDisabled: {
+    background: "rgba(26,26,26,0.1)",
+    color: "rgba(26,26,26,0.4)",
+    cursor: "not-allowed",
+    boxShadow: "none",
+  },
+  features: {
+    display: "flex",
+    gap: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 24,
+    paddingTop: 24,
+    borderTop: "1px solid rgba(0,0,0,0.05)",
+    flexWrap: "wrap",
+  },
+  featureItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+  },
+  featureLabel: {
+    fontSize: 12,
+    color: "rgba(26,26,26,0.6)",
+    fontWeight: 600,
+    letterSpacing: "0.3px",
+  },
+  featureDivider: {
+    width: 1,
+    height: 16,
+    background: "rgba(0,0,0,0.1)",
+  },
+  trustedCard: {
+    background: "#FFFFFF",
+    borderRadius: 14,
+    padding: "20px",
+    border: "1px solid rgba(0,0,0,0.05)",
+    boxShadow: "0 4px 20px rgba(0,0,0,0.03)",
+    overflow: "hidden",
+    marginTop: "20px",
+  },
+  trustedText: {
+    fontSize: 12,
+    color: "rgba(26,26,26,0.5)",
+    marginBottom: 16,
+    textAlign: "center",
+    fontWeight: 600,
+    textTransform: "uppercase",
+    letterSpacing: "0.5px",
+  },
+  marqueeContainer: {
+    width: "100%",
+    overflow: "hidden",
+    position: "relative",
+    maskImage: "linear-gradient(to right, transparent, black 10%, black 90%, transparent)",
+    WebkitMaskImage: "linear-gradient(to right, transparent, black 10%, black 90%, transparent)",
+  },
+  marqueeTrack: {
+    display: "flex",
+    gap: "24px",
+    width: "max-content",
+    animation: "marqueeScroll 40s linear infinite",
+  },
+  companyLogo: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    background: "#F8FAFC",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+    cursor: "pointer",
+    border: "1px solid rgba(0,0,0,0.05)",
+    padding: 6,
+    flexShrink: 0,
+    transition: "all 0.3s",
+  },
+  companyLogoImg: {
+    width: "100%",
+    height: "100%",
+    objectFit: "contain",
+  },
+  companyTooltip: {
+    position: "absolute",
+    bottom: -28,
+    left: "50%",
+    transform: "translateX(-50%)",
+    background: "#1A1A1A",
+    color: "#FFFFFF",
+    padding: "4px 10px",
+    borderRadius: 6,
+    fontSize: 11,
+    fontWeight: 600,
+    whiteSpace: "nowrap",
+    opacity: 0,
+    transition: "opacity 0.3s",
+    pointerEvents: "none",
+    zIndex: 10,
   },
   messageToast: {
     position: "relative",
     zIndex: 5,
-    color: "white",
-    padding: "10px 16px",
+    padding: "12px 20px",
     borderRadius: 10,
-    margin: "12px 0",
+    margin: "16px 0",
     textAlign: "center",
-    fontSize: 13,
+    fontSize: 14,
+    fontWeight: 600,
+    boxShadow: "0 4px 15px rgba(0,0,0,0.05)",
   },
   skillsCard: {
     position: "relative",
     zIndex: 5,
-    background: "rgba(255,255,255,0.02)",
-    backdropFilter: "blur(10px)",
+    background: "#FFFFFF",
     borderRadius: 14,
-    padding: 16,
-    margin: "12px 0",
-    border: "1px solid rgba(255,255,255,0.03)",
+    padding: 20,
+    margin: "20px 0",
+    border: "1px solid rgba(0, 102, 204, 0.1)",
+    boxShadow: "0 4px 20px rgba(0,0,0,0.03)",
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: 600,
-    marginBottom: 12,
-    color: "white",
+    fontSize: 18,
+    fontWeight: 700,
+    marginBottom: 16,
+    color: "#1A1A1A",
     padding: "0 4px",
   },
   skillsContainer: {
@@ -1289,135 +1239,106 @@ const styles: { [key: string]: React.CSSProperties } = {
     flexWrap: "wrap",
   },
   skillTag: {
-    background: "linear-gradient(135deg, rgba(37,99,235,0.12), rgba(124,58,237,0.06))",
-    color: "#93c5fd",
-    padding: "4px 12px",
-    borderRadius: 16,
-    fontSize: 11,
-    fontWeight: 500,
-    border: "1px solid rgba(37,99,235,0.06)",
+    background: "rgba(0, 102, 204, 0.08)",
+    color: "#0066CC",
+    padding: "6px 14px",
+    borderRadius: 20,
+    fontSize: 12,
+    fontWeight: 600,
+    border: "1px solid rgba(0, 102, 204, 0.15)",
   },
   jobsSection: {
     position: "relative",
     zIndex: 5,
     maxWidth: 1200,
     margin: "0 auto",
-    padding: "0 0 30px",
+    padding: "0 0 40px",
   },
   jobsGrid: {
     display: "grid",
     gridTemplateColumns: "1fr",
-    gap: 12,
+    gap: 16,
     padding: "0 4px",
   },
   jobCard: {
-    background: "rgba(255,255,255,0.02)",
-    backdropFilter: "blur(10px)",
+    background: "#FFFFFF",
     borderRadius: 14,
-    padding: 14,
-    border: "1px solid rgba(255,255,255,0.03)",
-    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03), 0 8px 32px rgba(0,0,0,0.15)",
+    padding: 20,
+    border: "1px solid rgba(0,0,0,0.05)",
+    boxShadow: "0 2px 10px rgba(0,0,0,0.03)",
     transition: "all 0.3s",
   },
   jobHeader: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 8,
+    marginBottom: 12,
   },
   jobTitle: {
-    fontSize: 15,
-    fontWeight: 600,
-    marginBottom: 2,
-    color: "white",
+    fontSize: 16,
+    fontWeight: 700,
+    marginBottom: 4,
+    color: "#1A1A1A",
   },
   jobCompany: {
-    color: "rgba(255,255,255,0.4)",
-    fontSize: 12,
+    color: "rgba(26,26,26,0.5)",
+    fontSize: 13,
+    fontWeight: 500,
   },
+  // ✅ CHANGE 2: Emerald Green for "Profile Matched"
   matchBadge: {
-    background: "linear-gradient(135deg, rgba(52,211,153,0.12), rgba(16,185,129,0.06))",
-    color: "#34d399",
-    padding: "2px 10px",
-    borderRadius: 16,
-    fontSize: 11,
-    fontWeight: 600,
-    border: "1px solid rgba(52,211,153,0.06)",
+    background: "rgba(16, 185, 129, 0.1)",
+    color: "#10B981",
+    padding: "4px 12px",
+    borderRadius: 20,
+    fontSize: 12,
+    fontWeight: 700,
+    border: "1px solid rgba(16, 185, 129, 0.2)",
   },
   jobLocation: {
-    color: "rgba(255,255,255,0.35)",
-    fontSize: 12,
-    marginBottom: 4,
+    color: "rgba(26,26,26,0.5)",
+    fontSize: 13,
+    marginBottom: 6,
   },
   jobDistance: {
-    color: "#6366f1",
-    fontSize: 11,
-    fontWeight: 600,
-    marginBottom: 8,
+    color: "#FF6B35",
+    fontSize: 12,
+    fontWeight: 700,
+    marginBottom: 12,
   },
   matchingSkills: {
     display: "flex",
     gap: 6,
     flexWrap: "wrap",
-    marginBottom: 10,
+    marginBottom: 16,
   },
   smallSkillTag: {
-    background: "rgba(255,255,255,0.03)",
-    color: "rgba(255,255,255,0.4)",
-    padding: "2px 8px",
-    borderRadius: 10,
-    fontSize: 10,
-    border: "1px solid rgba(255,255,255,0.02)",
+    background: "#F8FAFC",
+    color: "rgba(26,26,26,0.6)",
+    padding: "4px 10px",
+    borderRadius: 8,
+    fontSize: 11,
+    fontWeight: 600,
+    border: "1px solid rgba(0,0,0,0.05)",
   },
   applyBtn: {
-    background: "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)",
-    color: "white",
+    background: "linear-gradient(135deg, #0066CC 0%, #0052a3 100%)",
+    color: "#FFFFFF",
     border: "none",
-    padding: "8px",
-    borderRadius: 8,
-    fontSize: 13,
-    fontWeight: 500,
+    padding: "10px",
+    borderRadius: 10,
+    fontSize: 14,
+    fontWeight: 700,
     cursor: "pointer",
     width: "100%",
     transition: "all 0.3s",
-    boxShadow: "0 2px 20px rgba(37,99,235,0.1)",
+    boxShadow: "0 2px 10px rgba(0, 102, 204, 0.2)",
   },
   applyBtnDisabled: {
-    background: "rgba(255,255,255,0.04)",
+    background: "rgba(26,26,26,0.05)",
+    color: "rgba(26,26,26,0.4)",
     cursor: "not-allowed",
-    opacity: 0.5,
     boxShadow: "none",
-  },
-  emptyState: {
-    position: "relative",
-    zIndex: 5,
-    background: "rgba(255,255,255,0.02)",
-    backdropFilter: "blur(10px)",
-    borderRadius: 14,
-    padding: 30,
-    textAlign: "center",
-    margin: "12px 0 30px",
-    border: "1px solid rgba(255,255,255,0.03)",
-  },
-  emptyIcon: {
-    fontSize: 36,
-    marginBottom: 10,
-  },
-  emptyTitle: {
-    fontSize: 16,
-    marginBottom: 6,
-    color: "white",
-  },
-  emptyDesc: {
-    color: "rgba(255,255,255,0.35)",
-    marginBottom: 12,
-    fontSize: 13,
-  },
-  emptyFeatures: {
-    display: "flex",
-    gap: 10,
-    justifyContent: "center",
-    flexWrap: "wrap",
   },
 };
 
@@ -1433,8 +1354,8 @@ if (typeof document !== 'undefined') {
       50% { opacity: 1; }
     }
     @keyframes glow {
-      0%, 100% { box-shadow: 0 0 5px rgba(37, 99, 235, 0.3), 0 0 10px rgba(37, 99, 235, 0.1); }
-      50% { box-shadow: 0 0 20px rgba(37, 99, 235, 0.6), 0 0 30px rgba(37, 99, 235, 0.3); }
+      0%, 100% { box-shadow: 0 0 5px rgba(255, 107, 53, 0.3), 0 0 10px rgba(255, 107, 53, 0.1); }
+      50% { box-shadow: 0 0 20px rgba(255, 107, 53, 0.6), 0 0 30px rgba(255, 107, 53, 0.3); }
     }
     @keyframes floatLogo {
       0% { transform: translate(0, 0) rotate(0deg) scale(1); }
@@ -1447,16 +1368,15 @@ if (typeof document !== 'undefined') {
       0% { transform: scale(1) rotate(0deg); }
       100% { transform: scale(1.1) rotate(5deg); }
     }
+    @keyframes marqueeScroll {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+    
     @media (min-width: 768px) {
       .mainLayout {
         flex-direction: row !important;
         align-items: flex-start !important;
-      }
-      .sidebar {
-        width: 300px !important;
-        min-width: 300px !important;
-        position: sticky !important;
-        top: 80px !important;
       }
       .jobsGrid {
         grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)) !important;
@@ -1464,81 +1384,48 @@ if (typeof document !== 'undefined') {
     }
     @media (max-width: 480px) {
       .heroTitle {
-        font-size: 26px !important;
+        font-size: 28px !important;
       }
       .uploadHero {
-        padding: 16px 12px !important;
+        padding: 24px 16px !important;
       }
       .uploadBtn {
-        font-size: 13px !important;
-        padding: 8px 18px !important;
-        min-width: 100px !important;
+        font-size: 14px !important;
+        padding: 12px 24px !important;
+        min-width: 100% !important;
       }
       .jobTitle {
-        font-size: 14px !important;
-      }
-      .adContainer {
-        min-height: 150px !important;
+        font-size: 15px !important;
       }
       .locationInputRow {
         flex-direction: column !important;
       }
     }
+    
     [class*="companyLogo"]:hover {
       transform: translateY(-2px);
-      background: rgba(255,255,255,0.05);
+      background: #FFFFFF;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
     }
     [class*="companyLogo"]:hover [class*="companyTooltip"] {
       opacity: 1;
     }
     [class*="jobCard"]:hover {
       transform: translateY(-2px);
-      box-shadow: 0 8px 30px rgba(0,0,0,0.2);
-      border-color: rgba(37,99,235,0.06);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+      border-color: rgba(0, 102, 204, 0.2);
     }
     [class*="uploadBrowse"]:hover {
-      background: rgba(255,255,255,0.06);
+      background: #F8FAFC;
     }
     [class*="uploadBtn"]:hover:not(:disabled) {
       transform: translateY(-2px);
-      box-shadow: 0 8px 40px rgba(37,99,235,0.2);
-    }
-    [class*="companyGrid"]::-webkit-scrollbar {
-      height: 3px;
-    }
-    [class*="companyGrid"]::-webkit-scrollbar-track {
-      background: rgba(255,255,255,0.02);
-      border-radius: 10px;
-    }
-    [class*="companyGrid"]::-webkit-scrollbar-thumb {
-      background: rgba(255,255,255,0.06);
-      border-radius: 10px;
+      box-shadow: 0 8px 25px rgba(255, 107, 53, 0.4);
     }
     input:focus {
-      border-color: #2563eb !important;
+      border-color: #0066CC !important;
       outline: none;
-    }
-    [class*="logoutBtn"]:hover {
-      color: rgba(239, 68, 68, 0.8);
-    }
-    [class*="navLink"]:hover {
-      color: rgba(255,255,255,0.7);
-    }
-    [class*="scrollBtn"]:hover {
-      background: rgba(255,255,255,0.06);
-    }
-    [class*="applyBtn"]:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 30px rgba(37,99,235,0.2);
-    }
-    [class*="floatingLogo"]:nth-child(odd) {
-      animation-duration: 12s;
-    }
-    [class*="floatingLogo"]:nth-child(even) {
-      animation-duration: 18s;
-    }
-    [class*="footerLink"]:hover {
-      color: rgba(255,255,255,0.8) !important;
+      box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
     }
   `;
   document.head.appendChild(style);

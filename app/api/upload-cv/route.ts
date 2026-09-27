@@ -3,6 +3,21 @@ import mammoth from 'mammoth';
 import PDFParser from 'pdf2json';
 import { prisma } from '@/lib/prisma';
 
+// ==================== CONSTANTS ====================
+const MAJOR_CITIES = [
+  { name: "Delhi", lat: 28.6139, lon: 77.2090 },
+  { name: "Noida", lat: 28.5355, lon: 77.3910 },
+  { name: "Greater Noida", lat: 28.4744, lon: 77.5040 },
+  { name: "Gurgaon", lat: 28.4595, lon: 77.0266 },
+  { name: "Faridabad", lat: 28.4089, lon: 77.3178 },
+  { name: "Ghaziabad", lat: 28.6692, lon: 77.4538 },
+  { name: "Mumbai", lat: 19.0760, lon: 72.8777 },
+  { name: "Bangalore", lat: 12.9716, lon: 77.5946 },
+  { name: "Hyderabad", lat: 17.3850, lon: 78.4867 },
+  { name: "Chennai", lat: 13.0827, lon: 80.2707 },
+  { name: "Pune", lat: 18.5204, lon: 73.8567 },
+];
+
 // ==================== HELPER: ROBUST JSON EXTRACTOR ====================
 function extractJsonFromText(text: string): any {
   const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
@@ -217,7 +232,6 @@ function fallbackAnalysis(text: string): {
   let experienceYears = 3;
   let industry = "General";
 
-  // Try to extract first name (usually first word in CV)
   const nameMatch = text.match(/^([A-Z][a-z]+)/);
   const candidateFirstName = nameMatch ? nameMatch[1] : "";
 
@@ -336,23 +350,9 @@ async function getCoordinates(city: string): Promise<{ lat: number; lon: number 
 
 // ==================== GET NEARBY CITIES ====================
 async function getNearbyCities(lat: number, lon: number, radiusKm: number = 70): Promise<string[]> {
-  const majorCities = [
-    { name: "Delhi", lat: 28.6139, lon: 77.2090 },
-    { name: "Noida", lat: 28.5355, lon: 77.3910 },
-    { name: "Greater Noida", lat: 28.4744, lon: 77.5040 },
-    { name: "Gurgaon", lat: 28.4595, lon: 77.0266 },
-    { name: "Faridabad", lat: 28.4089, lon: 77.3178 },
-    { name: "Ghaziabad", lat: 28.6692, lon: 77.4538 },
-    { name: "Mumbai", lat: 19.0760, lon: 72.8777 },
-    { name: "Bangalore", lat: 12.9716, lon: 77.5946 },
-    { name: "Hyderabad", lat: 17.3850, lon: 78.4867 },
-    { name: "Chennai", lat: 13.0827, lon: 80.2707 },
-    { name: "Pune", lat: 18.5204, lon: 73.8567 },
-  ];
-  
   const nearbyCities: string[] = [];
   
-  for (const city of majorCities) {
+  for (const city of MAJOR_CITIES) {
     const distance = calculateDistance(lat, lon, city.lat, city.lon);
     if (distance <= radiusKm) {
       nearbyCities.push(city.name);
@@ -365,7 +365,7 @@ async function getNearbyCities(lat: number, lon: number, radiusKm: number = 70):
 // ==================== POST API ====================
 export async function POST(req: NextRequest) {
   try {
-    console.log("📄 OpenRouter-Based Deep CV Analysis with 70km Radius...");
+    console.log("📄 OpenRouter-Based Deep CV Analysis with 70km Radius (OPTIMIZED)...");
     
     const formData = await req.formData();
     const file = formData.get('cv') as File;
@@ -390,7 +390,6 @@ export async function POST(req: NextRequest) {
     }
     
     console.log("📄 Extracted text size:", cvText.length, "bytes");
-    console.log("📍 User Coords:", userLat, userLng);
 
     if (!cvText || cvText.trim().length < 50) {
       console.error("❌ Invalid CV content received. Length:", cvText?.length);
@@ -406,7 +405,6 @@ export async function POST(req: NextRequest) {
     console.log("🧠 OpenRouter Analysis Complete:");
     console.log("👤 Candidate Name:", aiAnalysis.candidateFirstName);
     console.log("🏆 Primary Role:", aiAnalysis.primaryRole);
-    console.log("🎯 Key Skills:", aiAnalysis.keySkills.slice(0, 5));
 
     const APP_ID = process.env.ADZUNA_APP_ID;
     const API_KEY = process.env.ADZUNA_API_KEY;
@@ -451,111 +449,107 @@ export async function POST(req: NextRequest) {
     searchTerms = [...new Set(searchTerms.filter(term => term && term.trim().length > 0))];
     console.log("🔍 Final Search Terms:", searchTerms.slice(0, 10));
     
-    let allJobs: any[] = [];
-    let totalJobsFound = 0;
-    
-    const fetchWithTimeout = async (url: string, timeout = 15000) => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeout);
-      try {
-        const response = await fetch(url, {
-          signal: controller.signal,
-          headers: { 'User-Agent': 'jobswitchers/1.0' }
-        });
-        clearTimeout(timeoutId);
-        return response;
-      } catch (error) {
-        clearTimeout(timeoutId);
-        throw error;
-      }
-    };
-    
+    // ✅ OPTIMIZATION 1: Parallel Fetching instead of sequential loops with delays
+    const fetchPromises = [];
     for (const location of searchLocations) {
-      console.log(`\n🔍 Searching in ${location}...`);
-      
       for (const term of searchTerms.slice(0, 3)) {
-        try {
-          const url = `https://api.adzuna.com/v1/api/jobs/in/search/1?app_id=${APP_ID}&app_key=${API_KEY}&results_per_page=15&what=${encodeURIComponent(term)}&where=${encodeURIComponent(location)}&max_days_old=7&content-type=application/json`;
-          
-          const response = await fetchWithTimeout(url, 15000);
-          
-          if (response.ok) {
-            const data = await response.json();
-            if (data.results && data.results.length > 0) {
-              console.log(`  ✅ ${data.results.length} jobs found for "${term}" in ${location}`);
-              totalJobsFound += data.results.length;
-              
-              for (const job of data.results) {
-                let jobCity = "";
-                let distance = null;
-                let isWithinRadius = true;
-                
-                if (job.location && job.location.display_name) {
-                  const parts = job.location.display_name.split(',');
-                  jobCity = parts[0]?.trim() || "";
-                }
-                
-                if (userCoords && jobCity) {
-                  const jobCoords = await getCoordinates(jobCity);
-                  if (jobCoords) {
-                    distance = calculateDistance(
-                      userCoords.lat, userCoords.lon,
-                      jobCoords.lat, jobCoords.lon
-                    );
-                    isWithinRadius = distance <= 70;
-                    
-                    if (isWithinRadius) {
-                      console.log(`    ✓ ${job.title} - ${jobCity}: ${distance.toFixed(1)}km (WITHIN 70km)`);
-                    } else {
-                      console.log(`    ✗ ${job.title} - ${jobCity}: ${distance.toFixed(1)}km (OUTSIDE 70km)`);
-                    }
-                  }
-                }
-                
-                allJobs.push({
-                  id: `${job.id}_${term}_${location}`,
-                  title: job.title || "Unknown",
-                  company: job.company?.display_name || "Unknown",
-                  location: job.location?.display_name || "India",
-                  city: jobCity,
-                  description: job.description?.substring(0, 500) || "",
-                  url: job.redirect_url || "#",
-                  postedDate: new Date(job.created || Date.now()),
-                  matchPercentage: calculateMatchPercentage(job.title || '', job.description || '', aiAnalysis),
-                  matchingSkills: aiAnalysis.keySkills.filter(skill => 
-                    (job.title + ' ' + (job.description || '')).toLowerCase().includes(skill.toLowerCase())
-                  ).slice(0, 5),
-                  primaryRole: aiAnalysis.primaryRole,
-                  isTechJob: true,
-                  distance: distance,
-                  withinRadius: isWithinRadius
-                });
+        const url = `https://api.adzuna.com/v1/api/jobs/in/search/1?app_id=${APP_ID}&app_key=${API_KEY}&results_per_page=15&what=${encodeURIComponent(term)}&where=${encodeURIComponent(location)}&max_days_old=7&content-type=application/json`;
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        
+        fetchPromises.push(
+          fetch(url, {
+            signal: controller.signal,
+            headers: { 'User-Agent': 'jobswitchers/1.0' }
+          })
+            .then(async (response) => {
+              clearTimeout(timeoutId);
+              if (response.ok) {
+                const data = await response.json();
+                return data.results || [];
               }
-            } else {
-              console.log(`  - No jobs for "${term}" in ${location}`);
-            }
-          }
-        } catch (err) {
-          const errorMessage = err instanceof Error ? err.message : String(err);
-          console.error(`Error fetching ${term} in ${location}:`, errorMessage);
-        }
-        await new Promise(resolve => setTimeout(resolve, 300));
+              return [];
+            })
+            .catch(err => {
+              clearTimeout(timeoutId);
+              console.error(`Error fetching ${term} in ${location}:`, err.message);
+              return [];
+            })
+        );
       }
     }
     
-    console.log(`\n Total raw jobs found: ${totalJobsFound}`);
+    const resultsArrays = await Promise.all(fetchPromises);
+    const allRawJobs = resultsArrays.flat();
     
+    console.log(`\n Total raw jobs fetched in parallel: ${allRawJobs.length}`);
+    
+    // ✅ OPTIMIZATION 2: Fast City Matching instead of per-job Geocoding API calls
+    const nearbyCitiesLower = searchLocations.map(c => c.toLowerCase());
+    
+    const processedJobs = allRawJobs.map(job => {
+      let jobCity = "";
+      let distance: number | null = null;
+      let isWithinRadius = true;
+      
+      if (job.location && job.location.display_name) {
+        const parts = job.location.display_name.split(',');
+        jobCity = parts[0]?.trim() || "";
+      }
+      
+      if (userCoords && jobCity) {
+        // Fast string matching against known nearby cities (NO external API call!)
+        const isNearby = nearbyCitiesLower.some(nearbyCity => jobCity.toLowerCase().includes(nearbyCity));
+        
+        if (isNearby) {
+          // Find exact coords from our predefined list for accurate distance
+          const matchedMajorCity = MAJOR_CITIES.find(c => jobCity.toLowerCase().includes(c.name.toLowerCase()));
+          if (matchedMajorCity) {
+            distance = calculateDistance(
+              userCoords.lat, userCoords.lon,
+              matchedMajorCity.lat, matchedMajorCity.lon
+            );
+            isWithinRadius = distance <= 70;
+          } else {
+            // It's in our search location list but not in major cities, assume within radius
+            isWithinRadius = true;
+          }
+        } else {
+          isWithinRadius = false;
+        }
+      }
+      
+      return {
+        id: `${job.id}`,
+        title: job.title || "Unknown",
+        company: job.company?.display_name || "Unknown",
+        location: job.location?.display_name || "India",
+        city: jobCity,
+        description: job.description?.substring(0, 500) || "",
+        url: job.redirect_url || "#",
+        postedDate: new Date(job.created || Date.now()),
+        matchPercentage: calculateMatchPercentage(job.title || '', job.description || '', aiAnalysis),
+        matchingSkills: aiAnalysis.keySkills.filter(skill => 
+          (job.title + ' ' + (job.description || '')).toLowerCase().includes(skill.toLowerCase())
+        ).slice(0, 5),
+        primaryRole: aiAnalysis.primaryRole,
+        isTechJob: true,
+        distance: distance,
+        withinRadius: isWithinRadius
+      };
+    });
+    
+    // ✅ OPTIMIZATION 3: Efficient Deduplication and Filtering in a single pass
     const seenUrls = new Set();
-    const filteredJobs = allJobs
+    const now = new Date();
+    
+    const filteredJobs = processedJobs
       .filter(job => {
         if (seenUrls.has(job.url)) return false;
         seenUrls.add(job.url);
-        return true;
-      })
-      .filter(job => {
-        const postedDate = new Date(job.postedDate);
-        const now = new Date();
-        const diffDays = (now.getTime() - postedDate.getTime()) / (1000 * 60 * 60 * 24);
+        
+        const diffDays = (now.getTime() - job.postedDate.getTime()) / (1000 * 60 * 60 * 24);
         return diffDays <= 7;
       })
       .sort((a, b) => {
