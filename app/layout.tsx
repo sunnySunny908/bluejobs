@@ -40,11 +40,11 @@ export default function RootLayout({
         {/* ✅ Footer yahan add kiya hai - Yeh automatically har page par dikhega */}
         <Footer />
         
-        {/* ✅ Adsterra Social Bar - Added for monetization */}
-        <Script
+        {/* ✅ Adsterra Social Bar - DISABLED (Commented out to stop annoying popups) */}
+        {/* <Script
           src="https://pl31195798.profitableratecpmnetwork.com/c7/05/09/c70509e2b59f6ad27bd7445f5383701c.js"
           strategy="afterInteractive"
-        />
+        /> */}
         
       </body>
     </html>
