@@ -11,8 +11,12 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "JobSwitchers - AI Finds Your Perfect Job in 60 Seconds",
+  title: "JobSwitchers - Get hired in 10 minutes",
   description: "AI-powered job matching platform. Upload your CV and get matched with 7-day fresh jobs.",
+  icons: {
+    icon: '/logo.png',
+    apple: '/logo.png', // ✅ Changed to logo.png so it doesn't look for a missing icon.png
+  },
 };
 
 export default function RootLayout({
