@@ -576,6 +576,11 @@ export default function Dashboard() {
         setSalaryData(data.salaryEstimate || null);
         setNegotiationTip(data.negotiationTip || "");
         
+        // ✅ PERMANENT FIX: Debug logging for salary data
+        console.log("💰 Salary Data Received:", data.salaryEstimate);
+        console.log("💰 Salary Min:", data.salaryEstimate?.min);
+        console.log("💰 Salary Max:", data.salaryEstimate?.max);
+        
         setShowFastTrackModal(true);
         
         const radiusMsg = (finalLat && finalLng) || (finalLocation && finalLocation !== "India") 
@@ -736,7 +741,8 @@ export default function Dashboard() {
             </div>
           )}
 
-          {salaryData && salaryData.min > 0 && (
+          {/* ✅ PERMANENT FIX: Relaxed condition to show salary even if min is 0 */}
+          {salaryData && (salaryData.min > 0 || salaryData.max > 0) && (
             <div style={{
               position: "relative", zIndex: 5, background: "#FFFFFF", borderRadius: 20, padding: 24, margin: "20px 0",
               border: "1px solid rgba(0, 102, 204, 0.1)", boxShadow: "0 10px 40px rgba(0,0,0,0.05)"
