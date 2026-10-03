@@ -178,11 +178,11 @@ function extractCompaniesFromCV(text: string): string[] {
     .slice(0, 10);
 }
 
-// ==================== ENHANCED DEEP CV ANALYSIS ====================
-async function analyzeCVWithOpenRouter(text: string, filename: string): Promise<any> {
+// ==================== ENHANCED DEEP CV ANALYSIS (GROQ WITH QWEN 3.8 27B) ====================
+async function analyzeCVWithGroq(text: string, filename: string): Promise<any> {
   try {
-    const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-    if (!OPENROUTER_API_KEY) return fallbackAnalysis(text, filename);
+    const GROQ_API_KEY = process.env.GROQ_API_KEY;
+    if (!GROQ_API_KEY) return fallbackAnalysis(text, filename);
 
     const perfectName = extractNameFromText(text, filename);
     const companiesFromCV = extractCompaniesFromCV(text);
@@ -245,34 +245,36 @@ RETURN STRICT JSON ONLY:
 Resume text:
 ${text.substring(0, 7000)}`;
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    console.log("⚡ Using Groq API (Model: qwen/qwen3.8-27b, max_tokens: 1000) for CV Analysis...");
+    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://jobswitchers.com",
-        "X-Title": "JobSwitchers"
+        "Authorization": `Bearer ${GROQ_API_KEY}`
       },
       body: JSON.stringify({
-        model: "meta-llama/llama-3.1-70b-instruct",
+        model: "qwen/qwen3.8-27b",
         messages: [
           { role: "system", content: "Output ONLY valid JSON. No markdown, no explanations outside JSON." },
           { role: "user", content: prompt }
         ],
         temperature: 0.1,
-        max_tokens: 1500,
-      }),
+        max_tokens: 1000, // ✅ FIX: Reduced to 1000 to comply with free tier OTPM limit
+        response_format: { type: "json_object" }
+      })
     });
 
-    if (!response.ok) {
-      console.error("❌ OpenRouter API Error:", response.status);
+    if (!groqRes.ok) {
+      const errorText = await groqRes.text();
+      console.error("❌ Groq API Error:", groqRes.status, errorText);
       return fallbackAnalysis(text, filename);
     }
 
-    const data = await response.json();
-    if (!data.choices || !data.choices[0]) return fallbackAnalysis(text, filename);
+    const groqData = await groqRes.json();
+    if (!groqData.choices || !groqData.choices[0]) return fallbackAnalysis(text, filename);
 
-    const text_response = data.choices[0].message.content || "";
+    const text_response = groqData.choices[0].message.content || "";
+    
     let parsed: any;
     try {
       parsed = extractJsonFromText(text_response);
@@ -329,7 +331,7 @@ ${text.substring(0, 7000)}`;
       idealJobProfile: parsed.idealJobProfile || ''
     };
   } catch (error) {
-    console.error("❌ OpenRouter Analysis Error:", error);
+    console.error("❌ Groq Analysis Error:", error);
     return fallbackAnalysis(text, filename);
   }
 }
@@ -675,7 +677,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: "Could not read CV content." }, { status: 400 });
     }
     
-    const aiAnalysis = await analyzeCVWithOpenRouter(cvText, file.name);
+    // ✅ UPDATED: Using Groq with qwen/qwen3.8-27b and max_tokens: 1000
+    const aiAnalysis = await analyzeCVWithGroq(cvText, file.name);
     
     const APP_ID = process.env.ADZUNA_APP_ID;
     const API_KEY = process.env.ADZUNA_API_KEY;
@@ -866,7 +869,7 @@ export async function POST(req: NextRequest) {
       totalMatches: filteredJobs.length,
       withinRadiusCount,
       sourceBreakdown: sourceBreakdown,
-      source: 'OpenRouter AI + 4 Job Sources',
+      source: 'Groq AI (qwen/qwen3.8-27b) + 4 Job Sources',
       location: searchLocations.join(', '),
       salaryEstimate: aiAnalysis.salaryEstimate,
       negotiationTip: aiAnalysis.negotiationTip,

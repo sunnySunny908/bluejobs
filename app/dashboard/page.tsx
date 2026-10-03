@@ -4,14 +4,9 @@ import { useSession } from "next-auth/react";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
-// ✅ Fast-Track Modal Component (WhatsApp Bug FIXED: No auto-open)
+// ✅ Success Modal Component (Replaces Plan Purchase Popup with Large Green Tick)
 function FastTrackModal({ isOpen, onClose, userName }: { isOpen: boolean; onClose: () => void; userName: string }) {
   if (!isOpen) return null;
-
-  const handlePayment = () => {
-    // Sirf payment link open hoga. WhatsApp auto-open bug permanently fixed.
-    window.open('https://imjo.in/SBqtUs', '_blank');
-  };
 
   return (
     <div style={{
@@ -31,104 +26,54 @@ function FastTrackModal({ isOpen, onClose, userName }: { isOpen: boolean; onClos
       <div style={{
         background: '#FFFFFF',
         borderRadius: '24px',
-        padding: '32px',
-        maxWidth: '480px',
+        padding: '40px 32px',
+        maxWidth: '420px',
         width: '100%',
-        border: '2px solid #FF6B35',
         boxShadow: '0 25px 50px rgba(0, 0, 0, 0.15)',
         textAlign: 'center',
-        position: 'relative'
+        position: 'relative',
+        border: '2px solid #10B981'
       }}>
-        <div style={{ 
-          position: 'absolute', top: '-15px', left: '50%', transform: 'translateX(-50%)',
-          background: 'linear-gradient(135deg, #FF6B35 0%, #ff8f66 100%)',
-          color: '#FFFFFF', padding: '6px 20px', borderRadius: '20px',
-          fontSize: '14px', fontWeight: '800', letterSpacing: '1px', textTransform: 'uppercase',
-          boxShadow: '0 4px 15px rgba(255, 107, 53, 0.3)'
-        }}>
-          Limited Time Offer
-        </div>
-
-        <h2 style={{ color: '#1A1A1A', fontSize: '28px', fontWeight: '800', marginBottom: '12px', lineHeight: '1.2', marginTop: '20px' }}>
-          Get Hired in 10 Minutes!
-        </h2>
-        <p style={{ color: '#FF6B35', fontSize: '16px', marginBottom: '24px', fontWeight: '600' }}>
-          Skip the waiting line. Your CV is instantly pushed to the top of 500+ actively hiring managers right now.
-        </p>
-        
+        {/* ✅ LARGE GREEN TICK */}
         <div style={{
-          background: 'rgba(255, 107, 53, 0.05)',
-          border: '1px solid rgba(255, 107, 53, 0.2)',
-          borderRadius: '16px',
-          padding: '20px',
-          marginBottom: '24px',
-          textAlign: 'left'
+          width: '80px',
+          height: '80px',
+          background: 'rgba(16, 185, 129, 0.1)',
+          borderRadius: '50%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          margin: '0 auto 24px auto'
         }}>
-          <ul style={{ color: '#1A1A1A', fontSize: '15px', margin: 0, padding: 0, listStyle: 'none' }}>
-            <li style={{ marginBottom: '12px' }}>Instant CV delivery to top HRs</li>
-            <li style={{ marginBottom: '12px' }}>10x higher chance of getting a callback</li>
-            <li style={{ marginBottom: '12px' }}>Direct WhatsApp connection to hiring managers</li>
-            <li>AI-powered CV optimization tips included</li>
-          </ul>
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M20 6L9 17L4 12" stroke="#10B981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
         </div>
 
-        <button 
-          onClick={handlePayment}
-          style={{
-            background: 'linear-gradient(135deg, #FF6B35 0%, #ff8f66 100%)',
-            color: '#FFFFFF',
-            border: 'none',
-            padding: '18px 32px',
-            borderRadius: '14px',
-            fontSize: '18px',
-            fontWeight: '800',
-            cursor: 'pointer',
-            width: '100%',
-            marginBottom: '16px',
-            transition: 'all 0.3s',
-            boxShadow: '0 8px 25px rgba(255, 107, 53, 0.3)'
-          }}
-        >
-          Get Hired in 10 Mins - Just ₹99
-        </button>
-
-        <div style={{ borderTop: '1px solid rgba(26,26,26,0.1)', paddingTop: '20px', marginTop: '20px' }}>
-          <p style={{ color: 'rgba(26,26,26,0.5)', fontSize: '12px', marginBottom: '12px' }}>
-            Need personalized guidance?
-          </p>
-          <button 
-            onClick={() => window.open('https://imjo.in/TfbXzp', '_blank')}
-            style={{
-              background: '#FFFFFF',
-              color: '#0066CC',
-              border: '2px solid #0066CC',
-              padding: '14px 24px',
-              borderRadius: '12px',
-              fontSize: '15px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              width: '100%',
-              transition: 'all 0.3s'
-            }}
-          >
-            Career Consulting Package - ₹149
-          </button>
-        </div>
+        <h2 style={{ color: '#1A1A1A', fontSize: '24px', fontWeight: '800', marginBottom: '12px' }}>
+          Analysis Successful!
+        </h2>
+        <p style={{ color: 'rgba(26,26,26,0.6)', fontSize: '15px', marginBottom: '32px', lineHeight: '1.5' }}>
+          Hi, your CV has been successfully analyzed. We found highly relevant jobs matching your profile.
+        </p>
 
         <button 
           onClick={onClose}
           style={{
-            background: 'transparent',
-            color: 'rgba(26,26,26,0.5)',
+            background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+            color: '#FFFFFF',
             border: 'none',
-            padding: '12px',
-            marginTop: '8px',
+            padding: '16px 32px',
+            borderRadius: '12px',
+            fontSize: '16px',
+            fontWeight: '700',
             cursor: 'pointer',
-            fontSize: '13px',
-            textDecoration: 'underline'
+            width: '100%',
+            transition: 'all 0.3s',
+            boxShadow: '0 4px 15px rgba(16, 185, 129, 0.3)'
           }}
         >
-          No thanks, I will apply free this time.
+          View My Jobs
         </button>
       </div>
     </div>
@@ -521,7 +466,6 @@ export default function Dashboard() {
   const handleUpload = async () => {
     if (!file) return;
     
-    // ✅ CHANGE 4: Super Fast Analysis - State updates INSTANTLY (0ms delay) for immediate UI feedback
     setUploading(true);
     
     const formData = new FormData();
@@ -576,11 +520,11 @@ export default function Dashboard() {
         setSalaryData(data.salaryEstimate || null);
         setNegotiationTip(data.negotiationTip || "");
         
-        // ✅ PERMANENT FIX: Debug logging for salary data
         console.log("💰 Salary Data Received:", data.salaryEstimate);
         console.log("💰 Salary Min:", data.salaryEstimate?.min);
         console.log("💰 Salary Max:", data.salaryEstimate?.max);
         
+        // ✅ NOW SHOWS SUCCESS POPUP WITH GREEN TICK INSTEAD OF PLAN PURCHASE
         setShowFastTrackModal(true);
         
         const radiusMsg = (finalLat && finalLng) || (finalLocation && finalLocation !== "India") 
@@ -637,6 +581,7 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* ✅ This now renders the Success Popup with Large Green Tick */}
       <FastTrackModal isOpen={showFastTrackModal} onClose={() => setShowFastTrackModal(false)} userName={userName} />
 
       <div style={styles.mainLayout}>
