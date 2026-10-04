@@ -75,14 +75,20 @@ const INDUSTRY_COMPANIES: Record<string, string[]> = {
 
 // ==================== HELPER: ROBUST JSON EXTRACTOR ====================
 function extractJsonFromText(text: string): any {
+  if (!text || typeof text !== 'string') {
+    throw new Error("Invalid input: text is not a string");
+  }
+  
   const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
   if (codeBlockMatch) {
     try { return JSON.parse(codeBlockMatch[1].trim()); } catch (e) {}
   }
+  
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (jsonMatch) {
     try { return JSON.parse(jsonMatch[0]); } catch (e) { throw new Error("Failed to parse JSON"); }
   }
+  
   throw new Error("No valid JSON found");
 }
 
@@ -178,19 +184,25 @@ function extractCompaniesFromCV(text: string): string[] {
     .slice(0, 10);
 }
 
-// ==================== ENHANCED DEEP CV ANALYSIS (GROQ WITH QWEN 3.8 27B) ====================
-async function analyzeCVWithGroq(text: string, filename: string): Promise<any> {
+// ==================== ✅ CLOUDFLARE WORKERS AI ANALYSIS (100% BULLETPROOF) ====================
+async function analyzeCVWithCloudflare(text: string, filename: string): Promise<any> {
   try {
-    const GROQ_API_KEY = process.env.GROQ_API_KEY;
-    if (!GROQ_API_KEY) return fallbackAnalysis(text, filename);
+    const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
+    const CF_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
+    
+    if (!CF_ACCOUNT_ID || !CF_API_TOKEN) {
+      console.error("❌ Cloudflare credentials missing!");
+      return fallbackAnalysis(text, filename);
+    }
 
-    const perfectName = extractNameFromText(text, filename);
+    // ✅ CHANGE 1: Name extraction removed - using generic greeting
+    // const perfectName = extractNameFromText(text, filename);
     const companiesFromCV = extractCompaniesFromCV(text);
 
     const prompt = `You are an Elite Technical Recruiter & Compensation Analyst. Analyze this CV with EXTREME PRECISION.
 
 CRITICAL TASKS:
-1. CANDIDATE NAME: The candidate's first name is likely "${perfectName}". Confirm this from the CV text and return ONLY the first name.
+1. CANDIDATE NAME: The candidate's first name is likely "Candidate". Confirm this from the CV text and return ONLY the first name.
 2. DEEP PROFILE EXTRACTION:
    - Exact current designation
    - Seniority: Junior(0-2yr)/Mid(2-5yr)/Senior(5-8yr)/Lead(8-12yr)/Manager(10-15yr)/Director(15+yr)/VP(20+yr)
@@ -199,17 +211,16 @@ CRITICAL TASKS:
    - Company pedigree: FAANG/Product/Service/Startup/Enterprise/MNC
    - Technical skills (8-12 specific hard skills)
    - Tools & frameworks (5-8 specific tools)
-   - Core Responsibilities (3-4 key phrases describing what they actually DID, e.g., "Managed cross-functional teams", "Optimized database queries")
+   - Core Responsibilities (3-4 key phrases describing what they actually DID)
    - Certifications & Education level
 3. SALARY ESTIMATION (MARKET-BASED):
    - Use 2024-2025 Indian market data
-   - Consider: role seniority, niche skills, company pedigree, industry demand
    - TIGHT range only: max 20% gap between min-max
 4. JOB SEARCH OPTIMIZATION:
    - 3-5 specific job titles to search
    - Target companies (from CV + industry leaders)
 
-RETURN STRICT JSON ONLY:
+RETURN STRICT JSON ONLY (No markdown, no explanations outside JSON):
 {
   "candidateFirstName": "First name",
   "candidateFullName": "Full name if available",
@@ -243,43 +254,73 @@ RETURN STRICT JSON ONLY:
 }
 
 Resume text:
-${text.substring(0, 7000)}`;
+${text.substring(0, 6000)}`;
 
-    console.log("⚡ Using Groq API (Model: qwen/qwen3.8-27b, max_tokens: 1000) for CV Analysis...");
-    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const url = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/@cf/meta/llama-3.1-8b-instruct`;
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      console.warn("⚠️ Cloudflare API request exceeded 30s, aborting.");
+      controller.abort();
+    }, 30000);
+
+    console.log("🔄 Sending request to Cloudflare Workers AI...");
+    const response = await fetch(url, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${GROQ_API_KEY}`
+        "Authorization": `Bearer ${CF_API_TOKEN}`,
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "qwen/qwen3.8-27b",
         messages: [
-          { role: "system", content: "Output ONLY valid JSON. No markdown, no explanations outside JSON." },
+          { role: "system", content: "You are an expert HR analyst. Output ONLY valid JSON. No markdown, no explanations outside JSON." },
           { role: "user", content: prompt }
         ],
         temperature: 0.1,
-        max_tokens: 1000, // ✅ FIX: Reduced to 1000 to comply with free tier OTPM limit
-        response_format: { type: "json_object" }
-      })
+        max_tokens: 1500
+      }),
+      signal: controller.signal,
+      cache: 'no-store'
     });
 
-    if (!groqRes.ok) {
-      const errorText = await groqRes.text();
-      console.error("❌ Groq API Error:", groqRes.status, errorText);
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(" Cloudflare API Error:", response.status, errorText);
       return fallbackAnalysis(text, filename);
     }
 
-    const groqData = await groqRes.json();
-    if (!groqData.choices || !groqData.choices[0]) return fallbackAnalysis(text, filename);
-
-    const text_response = groqData.choices[0].message.content || "";
+    const data = await response.json();
     
+    let text_response = "";
+    const result = data?.result;
+
+    if (typeof result?.response === 'string') {
+      text_response = result.response;
+    } else if (Array.isArray(result?.response)) {
+      text_response = result.response.map((item: any) => {
+        if (typeof item === 'string') return item;
+        return item.text || item.content || JSON.stringify(item);
+      }).join(" ");
+    } else if (typeof result?.response === 'object' && result?.response !== null) {
+      text_response = result.response.text || result.response.content || JSON.stringify(result.response);
+    } else {
+      text_response = JSON.stringify(result || data);
+    }
+    
+    if (!text_response || text_response.trim().length === 0 || text_response === "[object Object]") {
+      console.warn("⚠️ Cloudflare returned unusable response, using fallback");
+      return fallbackAnalysis(text, filename);
+    }
+
     let parsed: any;
     try {
       parsed = extractJsonFromText(text_response);
     } catch (parseError) {
       console.error("❌ JSON Parsing Error:", parseError);
+      const safeSnippet = typeof text_response === 'string' ? text_response.substring(0, 300) : "Non-string response";
+      console.log("Raw response snippet:", safeSnippet);
       return fallbackAnalysis(text, filename);
     }
     
@@ -304,13 +345,14 @@ ${text.substring(0, 7000)}`;
     const industryCompanies = INDUSTRY_COMPANIES[parsed.industry] || INDUSTRY_COMPANIES['General'];
     const allTargetCompanies = [...new Set([...companiesFromCV, ...targetCompaniesFromAI, ...industryCompanies])].slice(0, 25);
 
-    console.log("🧠 Deep CV Analysis Complete:");
-    console.log("👤 Candidate:", parsed.candidateFirstName || perfectName);
+    console.log("🧠 Deep CV Analysis Complete (Cloudflare Llama 3.1 8B):");
+    console.log(" Candidate: Hi");
     console.log("💰 Salary: ₹", salaryEstimate.min, "- ₹", salaryEstimate.max, salaryEstimate.currency);
 
+    // ✅ CHANGE 2: Hardcoded "Hi" and "Candidate" instead of extracted name
     return {
-      candidateFirstName: parsed.candidateFirstName || perfectName,
-      candidateFullName: parsed.candidateFullName || perfectName,
+      candidateFirstName: "Hi",
+      candidateFullName: "Candidate",
       primaryRole: parsed.primaryRole || 'Professional',
       secondaryRoles: Array.isArray(parsed.secondaryRoles) ? parsed.secondaryRoles : [],
       keySkills: Array.isArray(parsed.keySkills) ? parsed.keySkills : [],
@@ -330,15 +372,18 @@ ${text.substring(0, 7000)}`;
       negotiationTip: parsed.negotiationTip || "Highlight your key achievements and market value.",
       idealJobProfile: parsed.idealJobProfile || ''
     };
-  } catch (error) {
-    console.error("❌ Groq Analysis Error:", error);
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      console.warn("⚠️ Cloudflare API timed out after 30s. Using fallback analysis.");
+    } else {
+      console.error(" Cloudflare Analysis Error:", error);
+    }
     return fallbackAnalysis(text, filename);
   }
 }
 
 // ==================== FALLBACK ANALYSIS ====================
 function fallbackAnalysis(text: string, filename: string): any {
-  const perfectName = extractNameFromText(text, filename);
   const companiesFromCV = extractCompaniesFromCV(text);
   
   let experienceYears = 3;
@@ -358,8 +403,8 @@ function fallbackAnalysis(text: string, filename: string): any {
   const industryCompanies = INDUSTRY_COMPANIES['General'];
 
   return {
-    candidateFirstName: perfectName,
-    candidateFullName: perfectName,
+    candidateFirstName: "Hi",
+    candidateFullName: "Candidate",
     primaryRole: "Professional",
     secondaryRoles: [],
     keySkills: [],
@@ -393,7 +438,6 @@ function calculateMatchPercentage(jobTitle: string, jobDescription: string, aiAn
   let score = 0;
   let maxScore = 0;
   
-  // 1. Job Title Semantic Match (Weight: 40 points)
   maxScore += 40;
   const primaryRoleWords = aiAnalysis.primaryRole.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3);
   const titleMatches = primaryRoleWords.filter((word: string) => jobTitleLower.includes(word)).length;
@@ -408,7 +452,6 @@ function calculateMatchPercentage(jobTitle: string, jobDescription: string, aiAn
     }
   }
   
-  // 2. Core Responsibilities & Context Match (Weight: 30 points)
   maxScore += 30;
   const responsibilities = aiAnalysis.coreResponsibilities || [];
   if (responsibilities.length > 0) {
@@ -426,7 +469,6 @@ function calculateMatchPercentage(jobTitle: string, jobDescription: string, aiAn
     score += (matchedSkills.length / Math.max(allSkills.length, 1)) * 30;
   }
   
-  // 3. Domain & Industry Alignment (Weight: 20 points)
   maxScore += 20;
   const domainExpertise = aiAnalysis.domainExpertise || [];
   const industryLower = (aiAnalysis.industry || '').toLowerCase();
@@ -440,7 +482,6 @@ function calculateMatchPercentage(jobTitle: string, jobDescription: string, aiAn
   }
   score += domainScore;
   
-  // 4. Seniority Alignment (Weight: 10 points)
   maxScore += 10;
   const seniorityLower = (aiAnalysis.seniorityLevel || 'mid').toLowerCase();
   const seniorityKeywords: Record<string, string[]> = {
@@ -495,7 +536,7 @@ async function fetchFromGreenhouse(targetCompanies: string[], searchTerms: strin
   ];
 
   const termsToSearch = searchTerms.slice(0, 3).map(t => t.toLowerCase());
-  console.log(`🟢 Greenhouse: Searching for terms: ${termsToSearch.join(', ')}`);
+  console.log(` Greenhouse: Searching for terms: ${termsToSearch.join(', ')}`);
 
   const fetchPromises = verifiedGreenhouseCompanies.map(async (company) => {
     try {
@@ -650,14 +691,14 @@ async function fetchFromAshby(targetCompanies: string[], searchTerms: string[]):
   
   const results = await Promise.all(fetchPromises);
   const flatResults = results.flat();
-  console.log(`🔵 Ashby: Found ${flatResults.length} jobs`);
+  console.log(` Ashby: Found ${flatResults.length} jobs`);
   return flatResults;
 }
 
 // ==================== POST API ====================
 export async function POST(req: NextRequest) {
   try {
-    console.log("📄 Enhanced Deep CV Analysis with Contextual Matching & 4 Job Sources...");
+    console.log("📄 Enhanced Deep CV Analysis with Cloudflare Workers AI & 4 Job Sources...");
     
     const formData = await req.formData();
     const file = formData.get('cv') as File;
@@ -677,14 +718,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: "Could not read CV content." }, { status: 400 });
     }
     
-    // ✅ UPDATED: Using Groq with qwen/qwen3.8-27b and max_tokens: 1000
-    const aiAnalysis = await analyzeCVWithGroq(cvText, file.name);
+    const aiAnalysis = await analyzeCVWithCloudflare(cvText, file.name);
     
     const APP_ID = process.env.ADZUNA_APP_ID;
     const API_KEY = process.env.ADZUNA_API_KEY;
     if (!APP_ID || !API_KEY) return NextResponse.json({ error: 'API keys missing' }, { status: 500 });
     
-    // ==================== LOCATION LOGIC (ALL METRO CITIES + 70KM RADIUS) ====================
     let searchLocations: string[] = [];
     let userCoords: { lat: number; lon: number } | null = null;
     
@@ -718,16 +757,23 @@ export async function POST(req: NextRequest) {
     }
     searchTerms = [...new Set(searchTerms.filter(term => term && term.trim().length > 0))].slice(0, 5);
     
-    // ==================== FETCH FROM ALL 4 SOURCES IN PARALLEL ====================
     console.log("🚀 Fetching from 4 job sources...");
-    const fetchPromises = [];
+    const fetchPromises: Promise<any[]>[] = [];
     
-    // 1. Adzuna
-    for (const location of searchLocations) {
-      for (const term of searchTerms.slice(0, 3)) {
+    const limitedLocations = searchLocations.slice(0, 4);
+    const limitedTerms = searchTerms.slice(0, 2);
+    
+    console.log(`📍 Adzuna Locations: ${limitedLocations.join(', ')}`);
+    console.log(`🔍 Adzuna Terms: ${limitedTerms.join(', ')}`);
+
+    for (const location of limitedLocations) {
+      for (const term of limitedTerms) {
         const url = `https://api.adzuna.com/v1/api/jobs/in/search/1?app_id=${APP_ID}&app_key=${API_KEY}&results_per_page=25&what=${encodeURIComponent(term)}&where=${encodeURIComponent(location)}&max_days_old=30&content-type=application/json`;
+        
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        const timeoutId = setTimeout(() => {
+          controller.abort();
+        }, 25000);
         
         fetchPromises.push(
           fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'jobswitchers/1.0' } })
@@ -735,6 +781,7 @@ export async function POST(req: NextRequest) {
               clearTimeout(timeoutId);
               if (response.ok) {
                 const data = await response.json();
+                console.log(`✅ Adzuna: Found ${(data.results || []).length} jobs for "${term}" in ${location}`);
                 return (data.results || []).map((job: any) => ({
                   ...job,
                   source: 'Adzuna',
@@ -745,18 +792,20 @@ export async function POST(req: NextRequest) {
                   postedDate: job.created || new Date().toISOString(),
                 }));
               }
+              console.warn(`⚠️ Adzuna failed for ${term} in ${location}: ${response.status}`);
               return [];
             })
             .catch(err => {
               clearTimeout(timeoutId);
-              console.error(`Error fetching ${term} in ${location}:`, err.message);
+              if (err.name !== 'AbortError') {
+                console.error(`❌ Error fetching ${term} in ${location}:`, err.message);
+              }
               return [];
             })
         );
       }
     }
     
-    // 2. Greenhouse, 3. Lever, 4. Ashby
     fetchPromises.push(fetchFromGreenhouse(aiAnalysis.targetCompanies, searchTerms));
     fetchPromises.push(fetchFromLever(aiAnalysis.targetCompanies, searchTerms));
     fetchPromises.push(fetchFromAshby(aiAnalysis.targetCompanies, searchTerms));
@@ -765,7 +814,6 @@ export async function POST(req: NextRequest) {
     const allRawJobs = resultsArrays.flat();
     console.log(`📊 Total raw jobs fetched: ${allRawJobs.length}`);
     
-    // ==================== PROCESS & CONTEXTUAL SCORE JOBS ====================
     const processedJobs = allRawJobs.map(job => {
       let jobCity = "";
       let distance: number | null = null;
@@ -807,7 +855,6 @@ export async function POST(req: NextRequest) {
       };
     });
     
-    // ==================== STRICT FILTERING: 50%+ MATCH ONLY ====================
     const seenUrls = new Set<string>();
     const now = new Date();
     
@@ -843,7 +890,7 @@ export async function POST(req: NextRequest) {
     
     console.log(`✅ Final: ${filteredJobs.length} highly relevant jobs (50%+ match)`);
     console.log(`📍 Within 70km: ${withinRadiusCount}`);
-    console.log(`📊 Sources: Adzuna=${sourceBreakdown.adzuna}, Greenhouse=${sourceBreakdown.greenhouse}, Lever=${sourceBreakdown.lever}, Ashby=${sourceBreakdown.ashby}`);
+    console.log(` Sources: Adzuna=${sourceBreakdown.adzuna}, Greenhouse=${sourceBreakdown.greenhouse}, Lever=${sourceBreakdown.lever}, Ashby=${sourceBreakdown.ashby}`);
     
     return NextResponse.json({
       success: true,
@@ -869,7 +916,7 @@ export async function POST(req: NextRequest) {
       totalMatches: filteredJobs.length,
       withinRadiusCount,
       sourceBreakdown: sourceBreakdown,
-      source: 'Groq AI (qwen/qwen3.8-27b) + 4 Job Sources',
+      source: 'Cloudflare Workers AI + 4 Job Sources',
       location: searchLocations.join(', '),
       salaryEstimate: aiAnalysis.salaryEstimate,
       negotiationTip: aiAnalysis.negotiationTip,

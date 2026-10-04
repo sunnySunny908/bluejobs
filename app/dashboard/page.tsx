@@ -696,7 +696,7 @@ export default function Dashboard() {
                 <div style={{ flex: 1, minWidth: 250 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                     <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#FF6B35", letterSpacing: "0.5px" }}>
-                      {candidateName ? `${candidateName}'s Market Value` : "Your Market Value"}
+                      Hi, your current market value is:
                     </h3>
                   </div>
                   <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 12 }}>
