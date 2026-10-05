@@ -288,6 +288,17 @@ ${text.substring(0, 6000)}`;
     if (!response.ok) {
       const errorText = await response.text();
       console.error(" Cloudflare API Error:", response.status, errorText);
+      
+      // ✅ NEW: Check specifically for 429 Rate Limit
+      if (response.status === 429) {
+        console.warn("⚠️ Cloudflare Daily Limit Hit. Sending fallback with WhatsApp message.");
+        return {
+          ...fallbackAnalysis(text, filename),
+          isRateLimited: true,
+          rateLimitMessage: "Due to high demand AI workload, please try after 5:30 AM IST or 00:00 UTC. In the meantime, you can send your CV with our team to get the free CV market value and ATS score on WhatsApp at +91 7827664431."
+        };
+      }
+      
       return fallbackAnalysis(text, filename);
     }
 
@@ -895,6 +906,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       isTechCV: true,
+      // ✅ ADD THESE TWO LINES HERE
+      isRateLimited: aiAnalysis.isRateLimited || false,
+      rateLimitMessage: aiAnalysis.rateLimitMessage || "",
+      
       candidateFirstName: aiAnalysis.candidateFirstName,
       candidateFullName: aiAnalysis.candidateFullName,
       primaryRole: aiAnalysis.primaryRole,
