@@ -1,523 +1,312 @@
 import { NextRequest, NextResponse } from 'next/server';
-import mammoth from 'mammoth';
-import PDFParser from 'pdf2json';
 import { prisma } from '@/lib/prisma';
+// @ts-ignore - Bypassing strict type checking for natural library
+import * as natural from 'natural';
 
-// ==================== CONSTANTS: ALL MAJOR INDIAN CITIES FOR 70KM RADIUS ====================
+// ==================== CONSTANTS: LOCATION DATABASE ====================
 const MAJOR_CITIES = [
-  { name: "Delhi", lat: 28.6139, lon: 77.2090 },
-  { name: "New Delhi", lat: 28.6139, lon: 77.2090 },
-  { name: "Noida", lat: 28.5355, lon: 77.3910 },
-  { name: "Greater Noida", lat: 28.4744, lon: 77.5040 },
-  { name: "Gurgaon", lat: 28.4595, lon: 77.0266 },
-  { name: "Gurugram", lat: 28.4595, lon: 77.0266 },
-  { name: "Faridabad", lat: 28.4089, lon: 77.3178 },
-  { name: "Ghaziabad", lat: 28.6692, lon: 77.4538 },
-  { name: "Mumbai", lat: 19.0760, lon: 72.8777 },
-  { name: "Thane", lat: 19.2183, lon: 72.9781 },
-  { name: "Navi Mumbai", lat: 19.0330, lon: 73.0297 },
-  { name: "Pune", lat: 18.5204, lon: 73.8567 },
-  { name: "Bangalore", lat: 12.9716, lon: 77.5946 },
-  { name: "Bengaluru", lat: 12.9716, lon: 77.5946 },
-  { name: "Hyderabad", lat: 17.3850, lon: 78.4867 },
-  { name: "Chennai", lat: 13.0827, lon: 80.2707 },
-  { name: "Kolkata", lat: 22.5726, lon: 88.3639 },
-  { name: "Ahmedabad", lat: 23.0225, lon: 72.5714 },
-  { name: "Jaipur", lat: 26.9124, lon: 75.7873 },
-  { name: "Lucknow", lat: 26.8467, lon: 80.9462 },
-  { name: "Chandigarh", lat: 30.7333, lon: 76.7794 },
-  { name: "Indore", lat: 22.7196, lon: 75.8577 },
-  { name: "Bhopal", lat: 23.2599, lon: 77.4126 },
-  { name: "Nagpur", lat: 21.1458, lon: 79.0882 },
-  { name: "Visakhapatnam", lat: 17.6868, lon: 83.2185 },
-  { name: "Patna", lat: 25.6093, lon: 85.1376 },
-  { name: "Vadodara", lat: 22.3072, lon: 73.1812 },
-  { name: "Ludhiana", lat: 30.9010, lon: 75.8573 },
-  { name: "Agra", lat: 27.1767, lon: 78.0081 },
-  { name: "Nashik", lat: 19.9975, lon: 73.7898 },
-  { name: "Meerut", lat: 28.9845, lon: 77.7064 },
-  { name: "Rajkot", lat: 22.3039, lon: 70.8022 },
-  { name: "Varanasi", lat: 25.3176, lon: 82.9739 },
-  { name: "Srinagar", lat: 34.0837, lon: 74.7973 },
-  { name: "Aurangabad", lat: 19.8762, lon: 75.3433 },
-  { name: "Dhanbad", lat: 23.7957, lon: 86.4304 },
-  { name: "Amritsar", lat: 31.6340, lon: 74.8723 },
-  { name: "Allahabad", lat: 25.4358, lon: 81.8463 },
-  { name: "Prayagraj", lat: 25.4358, lon: 81.8463 },
-  { name: "Ranchi", lat: 23.3441, lon: 85.3096 },
-  { name: "Howrah", lat: 22.5958, lon: 88.2636 },
-  { name: "Coimbatore", lat: 11.0168, lon: 76.9558 },
-  { name: "Jabalpur", lat: 23.1815, lon: 79.9864 },
-  { name: "Gwalior", lat: 26.2183, lon: 78.1828 },
-  { name: "Vijayawada", lat: 16.5062, lon: 80.6480 },
-  { name: "Jodhpur", lat: 26.2389, lon: 73.0243 },
-  { name: "Madurai", lat: 9.9252, lon: 78.1198 },
-  { name: "Raipur", lat: 21.2514, lon: 81.6296 },
-  { name: "Kota", lat: 25.2138, lon: 75.8648 },
-  { name: "Guwahati", lat: 26.1445, lon: 91.7362 },
-  { name: "Dehradun", lat: 30.3165, lon: 78.0322 },
-  { name: "Bhubaneswar", lat: 20.2961, lon: 85.8245 },
-  { name: "Kochi", lat: 9.9312, lon: 76.2673 },
-  { name: "Mangalore", lat: 12.9141, lon: 74.8560 },
-  { name: "Jammu", lat: 32.7266, lon: 74.8570 },
-  { name: "Goa", lat: 15.2993, lon: 74.1240 },
+  // NCR & North
+  { name: "Delhi", lat: 28.6139, lon: 77.2090 }, { name: "New Delhi", lat: 28.6139, lon: 77.2090 },
+  { name: "Noida", lat: 28.5355, lon: 77.3910 }, { name: "Greater Noida", lat: 28.4744, lon: 77.5040 },
+  { name: "Gurgaon", lat: 28.4595, lon: 77.0266 }, { name: "Gurugram", lat: 28.4595, lon: 77.0266 },
+  { name: "Faridabad", lat: 28.4089, lon: 77.3178 }, { name: "Ghaziabad", lat: 28.6692, lon: 77.4538 },
+  { name: "Chandigarh", lat: 30.7333, lon: 76.7794 }, { name: "Lucknow", lat: 26.8467, lon: 80.9462 },
+  { name: "Kanpur", lat: 26.4499, lon: 80.3319 }, { name: "Jaipur", lat: 26.9124, lon: 75.7873 },
+  { name: "Jodhpur", lat: 26.2389, lon: 73.0243 }, { name: "Udaipur", lat: 24.5854, lon: 73.7125 },
+  { name: "Kota", lat: 25.2138, lon: 75.8648 }, { name: "Dehradun", lat: 30.3165, lon: 78.0322 },
+  { name: "Haridwar", lat: 29.9457, lon: 78.1642 }, { name: "Meerut", lat: 28.9845, lon: 77.7064 },
+  { name: "Agra", lat: 27.1767, lon: 78.0081 }, { name: "Varanasi", lat: 25.3176, lon: 82.9739 },
+  { name: "Prayagraj", lat: 25.4358, lon: 81.8463 }, { name: "Patna", lat: 25.6093, lon: 85.1376 },
+  { name: "Ranchi", lat: 23.3441, lon: 85.3096 }, { name: "Jamshedpur", lat: 22.8046, lon: 86.2029 },
+  { name: "Guwahati", lat: 26.1445, lon: 91.7362 }, { name: "Bhubaneswar", lat: 20.2961, lon: 85.8245 },
+  { name: "Cuttack", lat: 20.4625, lon: 85.8828 },
+  
+  // West
+  { name: "Mumbai", lat: 19.0760, lon: 72.8777 }, { name: "Thane", lat: 19.2183, lon: 72.9781 },
+  { name: "Navi Mumbai", lat: 19.0330, lon: 73.0297 }, { name: "Pune", lat: 18.5204, lon: 73.8567 },
+  { name: "Nashik", lat: 19.9975, lon: 73.7898 }, { name: "Aurangabad", lat: 19.8762, lon: 75.3433 },
+  { name: "Nagpur", lat: 21.1458, lon: 79.0882 }, { name: "Ahmedabad", lat: 23.0225, lon: 72.5714 },
+  { name: "Surat", lat: 21.1702, lon: 72.8311 }, { name: "Vadodara", lat: 22.3072, lon: 73.1812 },
+  { name: "Rajkot", lat: 22.3039, lon: 70.8022 }, { name: "Goa", lat: 15.2993, lon: 74.1240 },
   { name: "Panaji", lat: 15.4909, lon: 73.8278 },
+
+  // South
+  { name: "Bangalore", lat: 12.9716, lon: 77.5946 }, { name: "Bengaluru", lat: 12.9716, lon: 77.5946 },
+  { name: "Hyderabad", lat: 17.3850, lon: 78.4867 }, { name: "Chennai", lat: 13.0827, lon: 80.2707 },
+  { name: "Coimbatore", lat: 11.0168, lon: 76.9558 }, { name: "Madurai", lat: 9.9252, lon: 78.1198 },
+  { name: "Kochi", lat: 9.9312, lon: 76.2673 }, { name: "Trivandrum", lat: 8.5241, lon: 76.9366 },
+  { name: "Mangalore", lat: 12.9141, lon: 74.8560 }, { name: "Mysore", lat: 12.2958, lon: 76.6394 },
+  { name: "Hubli", lat: 15.3647, lon: 75.1240 }, { name: "Visakhapatnam", lat: 17.6868, lon: 83.2185 },
+  { name: "Vijayawada", lat: 16.5062, lon: 80.6480 }, { name: "Tirupati", lat: 13.6288, lon: 79.4192 },
+
+  // Central & East
+  { name: "Kolkata", lat: 22.5726, lon: 88.3639 }, { name: "Howrah", lat: 22.5958, lon: 88.2636 },
+  { name: "Dhanbad", lat: 23.7957, lon: 86.4304 }, { name: "Bhopal", lat: 23.2599, lon: 77.4126 },
+  { name: "Indore", lat: 22.7196, lon: 75.8577 }, { name: "Jabalpur", lat: 23.1815, lon: 79.9864 },
+  { name: "Gwalior", lat: 26.2183, lon: 78.1828 }, { name: "Raipur", lat: 21.2514, lon: 81.6296 },
+  { name: "Srinagar", lat: 34.0837, lon: 74.7973 }, { name: "Jammu", lat: 32.7266, lon: 74.8570 },
+  { name: "Amritsar", lat: 31.6340, lon: 74.8723 }, { name: "Ludhiana", lat: 30.9010, lon: 75.8573 }
 ];
 
-const INDUSTRY_COMPANIES: Record<string, string[]> = {
-  'Technology': ['google', 'microsoft', 'amazon', 'meta', 'apple', 'netflix', 'uber', 'airbnb', 'spotify', 'adobe', 'salesforce', 'oracle', 'sap', 'ibm', 'intel', 'nvidia', 'amd', 'qualcomm', 'cisco', 'vmware', 'atlassian', 'github', 'stripe', 'shopify', 'slack', 'zoom', 'dropbox', 'twilio', 'datadog', 'snowflake', 'databricks', 'palantir', 'crowdstrike', 'palo-alto-networks', 'fortinet', 'zscaler', 'cloudflare', 'fastly', 'vercel', 'hashicorp', 'elastic', 'mongodb', 'confluent', 'redis', 'gitlab', 'figma', 'canva', 'notion', 'airtable'],
-  'Finance': ['jpmorgan', 'goldman-sachs', 'morgan-stanley', 'citigroup', 'bank-of-america', 'wells-fargo', 'hsbc', 'barclays', 'deutsche-bank', 'ubs', 'credit-suisse', 'blackrock', 'vanguard', 'fidelity', 'schwab', 'american-express', 'visa', 'mastercard', 'paypal', 'stripe', 'square', 'plaid', 'brex', 'ramp', 'mercury', 'coinbase', 'robinhood', 'block', 'sofi', 'chime'],
-  'Healthcare': ['unitedhealth', 'johnson-johnson', 'pfizer', 'roche', 'novartis', 'merck', 'abbvie', 'bristol-myers', 'gilead', 'amgen', 'biogen', 'moderna', 'bioNTech', 'thermo-fisher', 'danaher', 'becton-dickinson', 'medtronic', 'abbott', 'boston-scientific', 'stryker', 'zimmer-biomet', 'intuitive-surgical', 'veracyte', '10x-genomics', 'illumina', 'pacific-biosciences', 'guardant-health', 'tempus', 'flatiron-health'],
-  'E-commerce': ['amazon', 'shopify', 'ebay', 'etsy', 'wayfair', 'overstock', 'chewy', 'instacart', 'doordash', 'uber-eats', 'grubhub', 'postmates', 'walmart', 'target', 'costco', 'best-buy', 'home-depot', 'lowes', 'nordstrom', 'macys', 'zappos', 'poshmark', 'mercari', 'depop', 'stockx', 'goat', 'farfetch', 'luxe', 'the-realreal'],
-  'Consulting': ['mckinsey', 'bcg', 'bain', 'accenture', 'deloitte', 'pwc', 'ey', 'kpmg', 'oliver-wyman', 'kearney', 'l-e-k', 'alixpartners', 'fti-consulting', 'huron', 'alvarez-marsal', 'protiviti', 'grant-thornton', 'bdo', 'rsm', 'crowe'],
-  'General': ['google', 'microsoft', 'amazon', 'meta', 'apple', 'netflix', 'uber', 'airbnb', 'spotify', 'adobe', 'salesforce', 'oracle', 'ibm', 'intel', 'nvidia', 'cisco', 'atlassian', 'github', 'stripe', 'shopify', 'jpmorgan', 'goldman-sachs', 'accenture', 'deloitte', 'pwc', 'ey', 'kpmg', 'walmart', 'target', 'costco'],
-};
+// ==================== ✅ DYNAMIC NLP EXTRACTION (NO HARDCODING) ====================
 
-// ==================== HELPER: ROBUST JSON EXTRACTOR ====================
-function extractJsonFromText(text: string): any {
-  if (!text || typeof text !== 'string') {
-    throw new Error("Invalid input: text is not a string");
-  }
-  
-  const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-  if (codeBlockMatch) {
-    try { return JSON.parse(codeBlockMatch[1].trim()); } catch (e) {}
-  }
-  
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (jsonMatch) {
-    try { return JSON.parse(jsonMatch[0]); } catch (e) { throw new Error("Failed to parse JSON"); }
-  }
-  
-  throw new Error("No valid JSON found");
+function escapeRegExp(string: string): string {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// ==================== READ FILE CONTENT ====================
-async function readFileContent(file: File): Promise<string> {
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const fileName = file.name.toLowerCase();
-  
-  if (fileName.endsWith('.pdf')) {
-    const text = await new Promise<string>((resolve, reject) => {
-      const pdfParser = new (PDFParser as any)(null, 1);
-      pdfParser.on('pdfParser_dataError', (errData: any) => reject(new Error(errData.parserError || "PDF Error")));
-      pdfParser.on('pdfParser_dataReady', () => resolve(pdfParser.getRawTextContent()));
-      pdfParser.parseBuffer(buffer);
-    });
-    if (text.trim().length > 0) return text;
-    throw new Error("Empty PDF");
-  }
-
-  if (fileName.endsWith('.docx') || fileName.endsWith('.doc')) {
-    const result = await mammoth.extractRawText({ buffer: buffer });
-    const text = result.value || "";
-    if (text.trim().length > 0) return text;
-    throw new Error("Empty DOCX");
-  }
-  
-  if (fileName.endsWith('.txt')) return buffer.toString('utf-8');
-  throw new Error("Unsupported format");
-}
-
-// ==================== PERFECT NAME EXTRACTION ====================
-function extractNameFromText(text: string, filename: string): string {
-  const fileNameHint = filename.replace(/\.(pdf|docx|doc|txt)$/i, '').trim();
-  const nameFromFilename = fileNameHint.split(/[_\-\s]+/)[0];
-  
-  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 3 && l.length < 60);
-  const blacklist = [
-    'resume', 'curriculum', 'vitae', 'objective', 'summary', 'profile',
-    'experience', 'education', 'skills', 'projects', 'certifications', 'awards',
-    'references', 'contact', 'phone', 'email', 'address', 'linkedin', 'github',
-    'career', 'goal', 'statement', 'work', 'history', 'employment'
+function extractDynamicRole(text: string) {
+  const rolePatterns = [
+    /(?:worked as|role of|position of|experience as|currently|formerly)\s+(?:a|an)?\s*([A-Z][a-zA-Z\s\-&]+?)(?:\s+at|\s+in|\s+with|,|\.|\n|$)/gi,
+    /([A-Z][a-zA-Z\s\-&]+?)\s+(?:Manager|Officer|Analyst|Director|Lead|Specialist|Engineer|Consultant|Coordinator|Administrator|Executive|Head|VP|President|Associate)\b/gi
   ];
 
-  for (let i = 0; i < Math.min(10, lines.length); i++) {
-    const line = lines[i];
-    const cleanLine = line.replace(/[,:;|•●►→\-\*]/g, '').trim();
-    const words = cleanLine.split(/\s+/).filter(w => w.length > 1);
-    
-    if (words.length >= 2 && words.length <= 4) {
-      const firstWord = words[0];
-      const isBlacklisted = blacklist.includes(firstWord.toLowerCase());
-      const isTitleCase = firstWord[0] === firstWord[0].toUpperCase() && firstWord.slice(1) === firstWord.slice(1).toLowerCase();
-      const isNotEmail = !firstWord.includes('@');
-      const isNotPhone = !/^\+?[\d\s\-\(\)]{7,}$/.test(firstWord);
-      const isNotUrl = !firstWord.startsWith('http') && !firstWord.includes('.com') && !firstWord.includes('.in');
-      
-      if (isTitleCase && !isBlacklisted && isNotEmail && isNotPhone && isNotUrl) {
-        return firstWord;
-      }
+  let foundRoles: string[] = [];
+  for (const pattern of rolePatterns) {
+    const matches = text.match(pattern);
+    if (matches) {
+      foundRoles = foundRoles.concat(matches.map(m => m.trim()));
     }
   }
-  
-  if (nameFromFilename && nameFromFilename.length >= 2) {
-    return nameFromFilename.charAt(0).toUpperCase() + nameFromFilename.slice(1).toLowerCase();
-  }
-  
-  return "Candidate";
-}
 
-// ==================== EXTRACT COMPANIES FROM CV ====================
-function extractCompaniesFromCV(text: string): string[] {
-  const companies: string[] = [];
-  const companyPatterns = [
-    /(?:at|@|,)\s*([A-Z][a-zA-Z0-9&\- ]{2,30})(?:\s*\||\s*,|\s*\n)/g,
-    /([A-Z][a-zA-Z0-9&\-]{2,30})\s+(?:Inc|LLC|Ltd|Corp|Corporation|Company|Technologies|Systems|Solutions|Services|Software|Labs|Studio|Studios|Group|Holdings|International|Global|Digital|Networks|Media|Communications|Consulting|Partners|Associates|Advisors|Capital|Ventures|Industries|Manufacturing|Engineering|Design|Analytics|Data|AI|Cloud|Security|Health|Healthcare|Finance|Financial|Bank|Banking|Insurance|Retail|E-commerce|Pharma|Biotech|Biotechnology|Automotive|Energy|Power|Telecom|Telecommunications|Media|Entertainment|Gaming|Education|EdTech|FinTech|HealthTech|PropTech|Food|FoodTech|Travel|TravelTech|Logistics|Supply Chain|Agriculture|AgriTech|Construction|Real Estate)/g,
-  ];
-  
-  for (const pattern of companyPatterns) {
-    let match;
-    while ((match = pattern.exec(text)) !== null) {
-      const company = match[1].trim();
-      if (company.length > 2 && company.length < 30) {
-        companies.push(company);
-      }
-    }
-  }
-  
-  const falsePositives = ['Experience', 'Education', 'Skills', 'Projects', 'Certifications', 'Awards', 'References', 'Summary', 'Objective', 'Profile', 'Contact', 'Phone', 'Email', 'Address', 'LinkedIn', 'GitHub', 'Portfolio', 'Website', 'Location', 'Date', 'Present', 'Current', 'Previous', 'Former', 'Intern', 'Internship', 'Freelance', 'Freelancer', 'Self-employed', 'Independent', 'Consultant', 'Contractor'];
-  
-  return [...new Set(companies)]
-    .filter(c => !falsePositives.includes(c))
-    .filter(c => !/^\d+$/.test(c))
-    .slice(0, 10);
-}
-
-// ==================== ✅ CLOUDFLARE WORKERS AI ANALYSIS (100% BULLETPROOF) ====================
-async function analyzeCVWithCloudflare(text: string, filename: string): Promise<any> {
-  try {
-    const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
-    const CF_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
-    
-    if (!CF_ACCOUNT_ID || !CF_API_TOKEN) {
-      console.error("❌ Cloudflare credentials missing!");
-      return fallbackAnalysis(text, filename);
-    }
-
-    // ✅ CHANGE 1: Name extraction removed - using generic greeting
-    // const perfectName = extractNameFromText(text, filename);
-    const companiesFromCV = extractCompaniesFromCV(text);
-
-    const prompt = `You are an Elite Technical Recruiter & Compensation Analyst. Analyze this CV with EXTREME PRECISION.
-
-CRITICAL TASKS:
-1. CANDIDATE NAME: The candidate's first name is likely "Candidate". Confirm this from the CV text and return ONLY the first name.
-2. DEEP PROFILE EXTRACTION:
-   - Exact current designation
-   - Seniority: Junior(0-2yr)/Mid(2-5yr)/Senior(5-8yr)/Lead(8-12yr)/Manager(10-15yr)/Director(15+yr)/VP(20+yr)
-   - Industry vertical (be specific: "Fintech", "SaaS", "Healthcare IT")
-   - Domain expertise (3-5 specific domains like "Payments", "Cloud Infrastructure", "Machine Learning")
-   - Company pedigree: FAANG/Product/Service/Startup/Enterprise/MNC
-   - Technical skills (8-12 specific hard skills)
-   - Tools & frameworks (5-8 specific tools)
-   - Core Responsibilities (3-4 key phrases describing what they actually DID)
-   - Certifications & Education level
-3. SALARY ESTIMATION (MARKET-BASED):
-   - Use 2024-2025 Indian market data
-   - TIGHT range only: max 20% gap between min-max
-4. JOB SEARCH OPTIMIZATION:
-   - 3-5 specific job titles to search
-   - Target companies (from CV + industry leaders)
-
-RETURN STRICT JSON ONLY (No markdown, no explanations outside JSON):
-{
-  "candidateFirstName": "First name",
-  "candidateFullName": "Full name if available",
-  "primaryRole": "Exact current designation",
-  "secondaryRoles": ["alt title 1", "alt title 2"],
-  "keySkills": ["skill1", "skill2", "skill3", "skill4", "skill5"],
-  "toolsAndFrameworks": ["tool1", "tool2", "tool3"],
-  "coreResponsibilities": ["responsibility phrase 1", "responsibility phrase 2", "responsibility phrase 3"],
-  "experienceYears": 5,
-  "seniorityLevel": "Senior",
-  "industry": "Specific industry vertical",
-  "domainExpertise": ["domain1", "domain2", "domain3"],
-  "companyPedigree": "Product",
-  "certifications": ["cert1"],
-  "educationLevel": "Bachelors/Masters/PhD",
-  "summary": "2-line professional summary",
-  "searchTerms": ["job title 1", "job title 2", "job title 3"],
-  "targetCompanies": ["company1", "company2", "company3", "company4", "company5"],
-  "salaryEstimate": {
-    "min": 12,
-    "max": 14,
-    "currency": "LPA",
-    "confidence": "High",
-    "reasoning": "Detailed reasoning",
-    "marketTrend": "Growing",
-    "comparableProfiles": ["Profile 1: ₹X-Y LPA"],
-    "factors": {"strengths": "", "weaknesses": "", "marketPosition": ""}
-  },
-  "negotiationTip": "Specific actionable tip",
-  "idealJobProfile": "Ideal next role description"
-}
-
-Resume text:
-${text.substring(0, 6000)}`;
-
-    const url = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/@cf/meta/llama-3.1-8b-instruct`;
-    
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => {
-      console.warn("⚠️ Cloudflare API request exceeded 30s, aborting.");
-      controller.abort();
-    }, 30000);
-
-    console.log("🔄 Sending request to Cloudflare Workers AI...");
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${CF_API_TOKEN}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        messages: [
-          { role: "system", content: "You are an expert HR analyst. Output ONLY valid JSON. No markdown, no explanations outside JSON." },
-          { role: "user", content: prompt }
-        ],
-        temperature: 0.1,
-        max_tokens: 1500
-      }),
-      signal: controller.signal,
-      cache: 'no-store'
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(" Cloudflare API Error:", response.status, errorText);
-      
-      // ✅ NEW: Check specifically for 429 Rate Limit
-      if (response.status === 429) {
-        console.warn("⚠️ Cloudflare Daily Limit Hit. Sending fallback with WhatsApp message.");
-        return {
-          ...fallbackAnalysis(text, filename),
-          isRateLimited: true,
-          rateLimitMessage: "Due to high demand AI workload, please try after 5:30 AM IST or 00:00 UTC. In the meantime, you can send your CV with our team to get the free CV market value and ATS score on WhatsApp at +91 7827664431."
-        };
-      }
-      
-      return fallbackAnalysis(text, filename);
-    }
-
-    const data = await response.json();
-    
-    let text_response = "";
-    const result = data?.result;
-
-    if (typeof result?.response === 'string') {
-      text_response = result.response;
-    } else if (Array.isArray(result?.response)) {
-      text_response = result.response.map((item: any) => {
-        if (typeof item === 'string') return item;
-        return item.text || item.content || JSON.stringify(item);
-      }).join(" ");
-    } else if (typeof result?.response === 'object' && result?.response !== null) {
-      text_response = result.response.text || result.response.content || JSON.stringify(result.response);
-    } else {
-      text_response = JSON.stringify(result || data);
-    }
-    
-    if (!text_response || text_response.trim().length === 0 || text_response === "[object Object]") {
-      console.warn("⚠️ Cloudflare returned unusable response, using fallback");
-      return fallbackAnalysis(text, filename);
-    }
-
-    let parsed: any;
-    try {
-      parsed = extractJsonFromText(text_response);
-    } catch (parseError) {
-      console.error("❌ JSON Parsing Error:", parseError);
-      const safeSnippet = typeof text_response === 'string' ? text_response.substring(0, 300) : "Non-string response";
-      console.log("Raw response snippet:", safeSnippet);
-      return fallbackAnalysis(text, filename);
-    }
-    
-    let salaryEstimate = parsed.salaryEstimate;
-    if (!salaryEstimate || !salaryEstimate.min || !salaryEstimate.max || salaryEstimate.min === 0) {
-      const exp = parsed.experienceYears || 3;
-      const baseMin = Math.max(3, exp * 3);
-      const baseMax = Math.round(baseMin * 1.2);
-      salaryEstimate = {
-        min: baseMin, max: baseMax, currency: "LPA", confidence: "Medium",
-        reasoning: `Estimated based on ${exp} years experience and market data`,
-        marketTrend: "Stable", comparableProfiles: [], factors: { strengths: "", weaknesses: "", marketPosition: "" }
-      };
-    }
-    
-    const rangeRatio = salaryEstimate.max / salaryEstimate.min;
-    if (rangeRatio > 1.25) {
-      salaryEstimate.max = Math.round(salaryEstimate.min * 1.2);
-    }
-
-    const targetCompaniesFromAI = Array.isArray(parsed.targetCompanies) ? parsed.targetCompanies : [];
-    const industryCompanies = INDUSTRY_COMPANIES[parsed.industry] || INDUSTRY_COMPANIES['General'];
-    const allTargetCompanies = [...new Set([...companiesFromCV, ...targetCompaniesFromAI, ...industryCompanies])].slice(0, 25);
-
-    console.log("🧠 Deep CV Analysis Complete (Cloudflare Llama 3.1 8B):");
-    console.log(" Candidate: Hi");
-    console.log("💰 Salary: ₹", salaryEstimate.min, "- ₹", salaryEstimate.max, salaryEstimate.currency);
-
-    // ✅ CHANGE 2: Hardcoded "Hi" and "Candidate" instead of extracted name
-    return {
-      candidateFirstName: "Hi",
-      candidateFullName: "Candidate",
-      primaryRole: parsed.primaryRole || 'Professional',
-      secondaryRoles: Array.isArray(parsed.secondaryRoles) ? parsed.secondaryRoles : [],
-      keySkills: Array.isArray(parsed.keySkills) ? parsed.keySkills : [],
-      toolsAndFrameworks: Array.isArray(parsed.toolsAndFrameworks) ? parsed.toolsAndFrameworks : [],
-      coreResponsibilities: Array.isArray(parsed.coreResponsibilities) ? parsed.coreResponsibilities : [],
-      experienceYears: parsed.experienceYears || 3,
-      seniorityLevel: parsed.seniorityLevel || 'Mid',
-      domainExpertise: Array.isArray(parsed.domainExpertise) ? parsed.domainExpertise : [],
-      companyPedigree: parsed.companyPedigree || 'Service',
-      certifications: Array.isArray(parsed.certifications) ? parsed.certifications : [],
-      educationLevel: parsed.educationLevel || 'Bachelors',
-      industry: parsed.industry || 'Technology',
-      summary: parsed.summary || 'Professional with relevant experience',
-      searchTerms: Array.isArray(parsed.searchTerms) ? parsed.searchTerms : [parsed.primaryRole],
-      targetCompanies: allTargetCompanies,
-      salaryEstimate: salaryEstimate,
-      negotiationTip: parsed.negotiationTip || "Highlight your key achievements and market value.",
-      idealJobProfile: parsed.idealJobProfile || ''
-    };
-  } catch (error: any) {
-    if (error.name === 'AbortError') {
-      console.warn("⚠️ Cloudflare API timed out after 30s. Using fallback analysis.");
-    } else {
-      console.error(" Cloudflare Analysis Error:", error);
-    }
-    return fallbackAnalysis(text, filename);
-  }
-}
-
-// ==================== FALLBACK ANALYSIS ====================
-function fallbackAnalysis(text: string, filename: string): any {
-  const companiesFromCV = extractCompaniesFromCV(text);
-  
-  let experienceYears = 3;
-  const expMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:years?|yrs?)/i);
-  if (expMatch) experienceYears = parseFloat(expMatch[1]);
-
-  let seniorityLevel = 'Mid';
-  if (experienceYears < 2) seniorityLevel = 'Junior';
-  else if (experienceYears < 5) seniorityLevel = 'Mid';
-  else if (experienceYears < 8) seniorityLevel = 'Senior';
-  else if (experienceYears < 12) seniorityLevel = 'Lead';
-  else if (experienceYears < 15) seniorityLevel = 'Manager';
-  else seniorityLevel = 'Director';
-
-  const baseMin = Math.max(3, experienceYears * 3);
-  const baseMax = Math.round(baseMin * 1.2);
-  const industryCompanies = INDUSTRY_COMPANIES['General'];
+  const uniqueRoles = [...new Set(foundRoles)].slice(0, 3);
+  const primaryRole = uniqueRoles[0] 
+    ? uniqueRoles[0].replace(/^(worked as|role of|position of|experience as|currently|formerly)\s+(?:a|an)?\s*/i, '').trim() 
+    : "Professional";
 
   return {
-    candidateFirstName: "Hi",
-    candidateFullName: "Candidate",
-    primaryRole: "Professional",
-    secondaryRoles: [],
-    keySkills: [],
-    toolsAndFrameworks: [],
-    coreResponsibilities: [],
-    experienceYears,
-    seniorityLevel,
-    domainExpertise: [],
-    companyPedigree: 'Service',
-    certifications: [],
-    educationLevel: 'Bachelors',
-    industry: 'Technology',
-    summary: "Profile analyzed",
-    searchTerms: ["Professional"],
-    targetCompanies: [...new Set([...companiesFromCV, ...industryCompanies])].slice(0, 25),
-    salaryEstimate: { 
-      min: baseMin, max: baseMax, currency: "LPA", confidence: "Medium",
-      reasoning: `Based on ${experienceYears} years experience`,
-      marketTrend: "Stable", comparableProfiles: [], factors: { strengths: "", weaknesses: "", marketPosition: "" }
-    },
-    negotiationTip: "Focus on your adaptability and willingness to learn.",
-    idealJobProfile: ''
+    primaryRole,
+    secondaryRoles: uniqueRoles.slice(1)
   };
 }
 
-// ==================== 🚀 CONTEXTUAL MATCH PERCENTAGE (MIN 50%) ====================
-function calculateMatchPercentage(jobTitle: string, jobDescription: string, aiAnalysis: any): number {
-  const jobTitleLower = jobTitle.toLowerCase();
-  const jobDescLower = jobDescription.toLowerCase();
-  const combinedText = jobTitleLower + ' ' + jobDescLower;
+// ✅ FIX 1: Moved OUTSIDE of extractDynamicRole to fix syntax error
+function cleanJobTitle(rawRole: string): string {
+  if (!rawRole) return "Professional";
+  
+  let cleaned = rawRole
+    .replace(/professional summary|objective|profile|summary|career objective/gi, '')
+    .replace(/dynamic and results-driven|highly motivated|experienced|detail-oriented/gi, '')
+    .trim();
+
+  const words = cleaned.split(/\s+/).filter(w => w.length > 0);
+  return words.slice(-4).join(' ') || "Professional";
+}
+
+function extractDynamicSkills(text: string): string[] {
+  const tokenizer = new natural.WordTokenizer();
+  const tokens = tokenizer.tokenize(text.toLowerCase());
+  
+  const stopWords = new Set([
+    'the','and','is','in','to','of','a','for','with','on','as','by','this','that','it','from','or','an',
+    'be','are','was','were','been','have','has','had','do','does','did','will','would','could','should',
+    'may','might','can','must','i','me','my','we','our','you','your','he','she','they','them','their',
+    'at','not','but','if','so','because','until','while','about','against','between','into','through',
+    'during','before','after','above','below','up','down','out','off','over','under','again','further',
+    'then','once','here','there','when','where','why','how','all','any','both','each','few','more',
+    'most','other','some','such','no','nor','only','own','same','than','too','very','just','also','now'
+  ]);
+
+  const freq: Record<string, number> = {};
+  tokens.forEach(token => {
+    const cleanToken = token.replace(/[^a-z]/g, '');
+    if (cleanToken.length > 3 && !stopWords.has(cleanToken)) {
+      freq[cleanToken] = (freq[cleanToken] || 0) + 1;
+    }
+  });
+
+  const sortedSkills = Object.entries(freq)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 15)
+    .map(entry => entry[0]);
+
+  return sortedSkills;
+}
+
+function detectDynamicIndustry(skills: string[]): string[] {
+  const industries: string[] = [];
+  const skillString = skills.join(' ').toLowerCase();
+  
+  if (skillString.match(/compliance|regulatory|audit|risk|gdpr|sox|legal/)) industries.push('Regulatory & Compliance');
+  if (skillString.match(/banking|finance|fintech|investment|trading/)) industries.push('Finance & Banking');
+  if (skillString.match(/software|code|developer|engineer|react|python/)) industries.push('Technology & Software');
+  if (skillString.match(/healthcare|medical|hospital|patient|clinical/)) industries.push('Healthcare');
+  if (skillString.match(/marketing|sales|seo|growth|brand/)) industries.push('Marketing & Sales');
+  if (skillString.match(/supply|logistics|warehouse|manufacturing/)) industries.push('Supply Chain & Manufacturing');
+  
+  return industries.length > 0 ? industries : ['General'];
+}
+
+// ==================== HELPER: DEEP RESUME PARSING & INTELLIGENCE ====================
+
+function calculateExperienceTimeline(text: string) {
+  const dateRegex = /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\s\-\/]+(?:20\d{2}|19\d{2})\s*(?:-|to|–|—)\s*(?:Present|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\s\-\/]+(?:20\d{2}|19\d{2})|(?:20\d{2}|19\d{2})\s*(?:-|to|–|—)\s*(?:20\d{2}|19\d{2}|Present)/gi;
+  const matches = text.match(dateRegex) || [];
+  
+  let totalMonths = 0;
+  let hasLeadership = false;
+  let hasManagement = false;
+  let progressionScore = 0;
+
+  matches.forEach((match, index) => {
+    const years = match.match(/(20\d{2}|19\d{2})/g);
+    if (years && years.length >= 2) {
+      const start = parseInt(years[0]);
+      const end = years[1].toLowerCase() === 'present' ? new Date().getFullYear() : parseInt(years[1]);
+      totalMonths += (end - start) * 12;
+      if (index > 0) progressionScore += 10;
+    }
+  });
+
+  if (totalMonths === 0) {
+    const yearMatches = text.match(/(\d+)\s*\+?\s*years?/i);
+    if (yearMatches) {
+      totalMonths = parseInt(yearMatches[1]) * 12;
+    }
+  }
+
+  const lowerText = text.toLowerCase();
+  if (lowerText.includes('led') || lowerText.includes('head') || lowerText.includes('director')) hasLeadership = true;
+  if (lowerText.includes('managed') || lowerText.includes('supervised') || lowerText.includes('team of')) hasManagement = true;
+
+  const totalYears = Math.round(totalMonths / 12);
+  
+  let progressionType = "Stable";
+  if (progressionScore > 20) progressionType = "High Growth";
+  else if (progressionScore > 0) progressionType = "Steady Growth";
+
+  return {
+    totalExperienceYears: totalYears,
+    relevantExperienceYears: totalYears,
+    leadershipExperience: hasLeadership,
+    managementExperience: hasManagement,
+    careerProgression: progressionType,
+    progressionScore: Math.min(progressionScore, 100)
+  };
+}
+
+function calculateAdvancedATSScore(text: string, skills: string[], experienceData: any) {
+  const lowerText = text.toLowerCase();
   let score = 0;
-  let maxScore = 0;
-  
-  maxScore += 40;
-  const primaryRoleWords = aiAnalysis.primaryRole.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3);
-  const titleMatches = primaryRoleWords.filter((word: string) => jobTitleLower.includes(word)).length;
-  if (titleMatches >= 2) score += 40;
-  else if (titleMatches === 1) score += 25;
-  
-  for (const role of aiAnalysis.secondaryRoles) {
-    const roleWords = role.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3);
-    if (roleWords.some((w: string) => jobTitleLower.includes(w))) {
-      score += 15;
-      break;
-    }
-  }
-  
-  maxScore += 30;
-  const responsibilities = aiAnalysis.coreResponsibilities || [];
-  if (responsibilities.length > 0) {
-    let respScore = 0;
-    for (const resp of responsibilities) {
-      const respWords = resp.toLowerCase().split(/\s+/).filter((w: string) => w.length > 4);
-      const matches = respWords.filter((w: string) => jobDescLower.includes(w)).length;
-      if (matches >= 2) respScore += 10;
-      else if (matches === 1) respScore += 5;
-    }
-    score += Math.min(respScore, 30);
-  } else {
-    const allSkills = [...(aiAnalysis.keySkills || []), ...(aiAnalysis.toolsAndFrameworks || [])];
-    const matchedSkills = allSkills.filter((skill: string) => combinedText.includes(skill.toLowerCase()));
-    score += (matchedSkills.length / Math.max(allSkills.length, 1)) * 30;
-  }
-  
-  maxScore += 20;
-  const domainExpertise = aiAnalysis.domainExpertise || [];
-  const industryLower = (aiAnalysis.industry || '').toLowerCase();
-  let domainScore = 0;
-  if (domainExpertise.length > 0) {
-    const matchedDomains = domainExpertise.filter((d: string) => combinedText.includes(d.toLowerCase()));
-    domainScore += (matchedDomains.length / domainExpertise.length) * 15;
-  }
-  if (industryLower && combinedText.includes(industryLower)) {
-    domainScore += 5;
-  }
-  score += domainScore;
-  
-  maxScore += 10;
-  const seniorityLower = (aiAnalysis.seniorityLevel || 'mid').toLowerCase();
-  const seniorityKeywords: Record<string, string[]> = {
-    'junior': ['junior', 'entry', 'fresher', 'associate', 'jr', 'i'],
-    'mid': ['mid', 'mid-level', 'intermediate', 'ii'],
-    'senior': ['senior', 'sr', 'sr.', 'iii', 'staff'],
-    'lead': ['lead', 'principal', 'tech lead'],
-    'manager': ['manager', 'engineering manager', 'product manager'],
-    'director': ['director', 'head of', 'vp', 'vice president'],
-  };
-  const expectedKeywords = seniorityKeywords[seniorityLower] || [];
-  if (expectedKeywords.some((kw: string) => combinedText.includes(kw))) {
+  let explanations: string[] = [];
+
+  const headings = ['summary', 'experience', 'education', 'skills', 'projects'];
+  const foundHeadings = headings.filter(h => lowerText.includes(h)).length;
+  score += (foundHeadings / headings.length) * 20;
+  if (foundHeadings >= 4) explanations.push("Excellent resume structure");
+
+  const hasMetrics = (text.match(/\d+%|\$\d+|\d+\s*(years|months|people|team)/gi) || []).length;
+  score += Math.min((hasMetrics / 3) * 30, 30);
+  if (hasMetrics >= 3) explanations.push("Strong use of quantifiable achievements");
+
+  score += Math.min((skills.length / 8) * 25, 25);
+  if (skills.length >= 5) explanations.push("Comprehensive skill set detected");
+
+  const actionVerbs = ['developed', 'led', 'managed', 'created', 'optimized', 'designed', 'implemented'];
+  const verbCount = actionVerbs.filter(v => lowerText.includes(v)).length;
+  score += (verbCount / actionVerbs.length) * 15;
+  if (verbCount >= 3) explanations.push("Strong action-oriented language");
+
+  if (lowerText.includes('bachelor') || lowerText.includes('master') || lowerText.includes('degree')) {
     score += 10;
-  } else if (seniorityLower === 'mid') {
-    score += 5;
+    explanations.push("Education clearly stated");
   }
-  
-  const percentage = (score / maxScore) * 100;
-  let finalPercentage = Math.round(percentage);
-  if (finalPercentage >= 75) finalPercentage = Math.min(finalPercentage + 5, 98);
-  
-  return Math.max(finalPercentage, 0);
+
+  return { score: Math.round(score), explanations };
 }
 
-// ==================== DISTANCE CALCULATION ====================
+function estimateAdvancedSalary(role: string, experienceData: any, seniority: string, industries: string[], skills: string[]) {
+  let baseSalary = 300000;
+  const years = experienceData.totalExperienceYears;
+
+  if (years === 0) baseSalary = 250000;
+  else if (years <= 2) baseSalary = 350000 + (years * 100000);
+  else if (years <= 5) baseSalary = 550000 + ((years - 2) * 150000);
+  else if (years <= 8) baseSalary = 1000000 + ((years - 5) * 200000);
+  else baseSalary = 1600000 + ((years - 8) * 250000);
+
+  if (seniority === 'Manager' || seniority === 'Director' || seniority === 'VP') baseSalary += 500000;
+  if (role.toLowerCase().includes('software') || role.toLowerCase().includes('data') || role.toLowerCase().includes('devops')) baseSalary += 250000;
+  if (experienceData.leadershipExperience || experienceData.managementExperience) baseSalary += 200000;
+
+  const highPaySkills = ['machine learning', 'ai', 'aws', 'kubernetes', 'react', 'python', 'blockchain', 'sap', 'salesforce', 'compliance', 'audit'];
+  const foundHighPay = skills.filter(s => highPaySkills.includes(s)).length;
+  baseSalary += foundHighPay * 60000;
+
+  const min = Math.round((baseSalary * 0.9) / 100000);
+  const max = Math.round((baseSalary * 1.1) / 100000);
+
+  return {
+    min, max, currency: "LPA", confidence: "High",
+    reasoning: `Based on ${years} years as ${role} (${seniority}) with ${foundHighPay} high-demand skills.`,
+    marketTrend: "Stable", comparableProfiles: [],
+    factors: { strengths: "Accurate role and experience mapping", weaknesses: "", marketPosition: "Competitive" }
+  };
+}
+
+// ==================== HELPER: WEIGHTED JOB MATCHING (35/25/20/10/10) ====================
+function calculateWeightedJobMatch(
+  cvText: string, 
+  jobTitle: string, 
+  jobDescription: string, 
+  candidateData: any
+): number {
+  const cleanJob = `${jobTitle} ${jobDescription}`.toLowerCase().replace(/[^\w\s]/g, ' ');
+  let totalScore = 0;
+
+  // 1. Role Match (35%)
+  let roleScore = 0;
+  const jobTitleLower = jobTitle.toLowerCase();
+  if (jobTitleLower.includes(candidateData.primaryRole.toLowerCase())) {
+    roleScore = 35;
+  } else if (candidateData.secondaryRoles.some((r: string) => jobTitleLower.includes(r.toLowerCase()))) {
+    roleScore = 25;
+  } else {
+    const roleWords = candidateData.primaryRole.toLowerCase().split(/\s+/);
+    if (roleWords.some((w: string) => w.length > 3 && jobTitleLower.includes(w))) roleScore = 15;
+  }
+  totalScore += roleScore;
+
+  // 2. Responsibility Match (25%)
+  let respScore = 0;
+  const actionVerbs = ['managed', 'led', 'developed', 'optimized', 'designed', 'implemented', 'audited', 'reviewed'];
+  const matchedVerbs = actionVerbs.filter(v => cleanJob.includes(v));
+  respScore = Math.min((matchedVerbs.length / 3) * 25, 25);
+  totalScore += respScore;
+
+  // 3. Skill Match (20%)
+  let skillScore = 0;
+  const matchedSkills = candidateData.skills.filter((skill: string) => {
+    const escapedSkill = escapeRegExp(skill);
+    return new RegExp(`\\b${escapedSkill}\\b`, 'i').test(cleanJob);
+  });
+  skillScore = Math.min((matchedSkills.length / 5) * 20, 20);
+  totalScore += skillScore;
+
+  // 4. Experience Match (10%)
+  let expScore = 0;
+  const expMatch = jobDescription.match(/(\d+)\+?\s*years?/i);
+  if (expMatch) {
+    const requiredYears = parseInt(expMatch[1]);
+    if (candidateData.totalExperienceYears >= requiredYears) expScore = 10;
+    else if (candidateData.totalExperienceYears >= requiredYears - 1) expScore = 5;
+  } else {
+    expScore = 10;
+  }
+  totalScore += expScore;
+
+  // 5. Industry Match (10%)
+  let industryScore = 0;
+  if (candidateData.industries.some((ind: string) => cleanJob.includes(ind.toLowerCase()))) {
+    industryScore = 10;
+  } else if (candidateData.industries.includes("General")) {
+    industryScore = 5;
+  }
+  totalScore += industryScore;
+
+  return Math.min(Math.round(totalScore), 98);
+}
+
+// ==================== HELPER: DISTANCE CALCULATION ====================
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -526,350 +315,328 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
-// ==================== GET NEARBY CITIES (70KM RADIUS) ====================
 async function getNearbyCities(lat: number, lon: number, radiusKm: number = 70): Promise<string[]> {
   const nearbyCities: string[] = [];
   for (const city of MAJOR_CITIES) {
     const distance = calculateDistance(lat, lon, city.lat, city.lon);
-    if (distance <= radiusKm) {
-      nearbyCities.push(city.name);
-    }
+    if (distance <= radiusKm) nearbyCities.push(city.name);
   }
   return nearbyCities;
 }
 
-// ==================== ✅ BULLETPROOF GREENHOUSE FETCHER ====================
-async function fetchFromGreenhouse(targetCompanies: string[], searchTerms: string[]): Promise<any[]> {
-  const verifiedGreenhouseCompanies = [
-    'airbnb', 'coinbase', 'notion', 'figma', 'canva', 'doordash', 'robinhood', 
-    'twitch', 'discord', 'shopify', 'github', 'gitlab', 'coursera', 'buzzfeed',
-    'stripe', 'dropbox', 'trello', 'asana', 'zendesk', 'hubspot', 'square', 'block'
-  ];
-
-  const termsToSearch = searchTerms.slice(0, 3).map(t => t.toLowerCase());
-  console.log(` Greenhouse: Searching for terms: ${termsToSearch.join(', ')}`);
-
-  const fetchPromises = verifiedGreenhouseCompanies.map(async (company) => {
+// ==================== ✅ BULLETPROOF JOB FETCHERS ====================
+async function fetchFromGreenhouse(searchTerms: string[]): Promise<any[]> {
+  const verified = ['airbnb', 'coinbase', 'notion', 'figma', 'canva', 'doordash', 'robinhood', 'twitch', 'discord', 'shopify', 'github', 'gitlab', 'stripe', 'dropbox', 'asana', 'zendesk', 'hubspot', 'square', 'block', 'uber', 'lyft', 'spotify', 'slack', 'zoom', 'atlassian'];
+  const terms = searchTerms.slice(0, 3).map(t => t.toLowerCase());
+  const promises = verified.map(async (company) => {
     try {
-      const url = `https://boards-api.greenhouse.io/v1/boards/${company}/jobs?content=true`;
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
-      
-      const res = await fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'jobswitchers/1.0' } });
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // ✅ FIX: Lowered to 5s
+      const res = await fetch(`https://boards-api.greenhouse.io/v1/boards/${company}/jobs?content=true`, { signal: controller.signal });
       clearTimeout(timeoutId);
-      
       if (res.ok) {
         const data = await res.json();
-        const jobs = data.jobs || [];
-        
-        const matchedJobs = jobs.filter((job: any) => {
-          const title = (job.title || '').toLowerCase();
-          const content = (job.content || '').toLowerCase();
-          return termsToSearch.some(term => {
-            const termWords = term.split(/\s+/).filter(w => w.length > 3);
-            return termWords.some(word => title.includes(word)) || title.includes(term) || content.includes(term);
-          });
-        });
-
-        const finalJobs = matchedJobs.length > 0 ? matchedJobs : jobs.slice(0, 2);
-
-        return finalJobs.map((job: any) => ({
-          id: `greenhouse-${company}-${job.id}`,
-          title: job.title || 'Unknown',
-          company: company.charAt(0).toUpperCase() + company.slice(1),
-          location: job.location?.name || 'Remote',
-          url: job.absolute_url || `https://boards.greenhouse.io/${company}/jobs/${job.id}`,
-          description: (job.content || '').replace(/<[^>]*>/g, '').substring(0, 1000),
-          postedDate: job.updated_at || new Date().toISOString(),
-          source: 'Greenhouse',
+        return (data.jobs || []).filter((job: any) => terms.some(term => (job.title + ' ' + job.content).toLowerCase().includes(term))).slice(0, 2).map((job: any) => ({
+          id: `gh-${company}-${job.id}`, title: job.title, company: company.charAt(0).toUpperCase() + company.slice(1),
+          location: job.location?.name || 'Remote', url: job.absolute_url, description: (job.content || '').replace(/<[^>]*>/g, '').substring(0, 500),
+          postedDate: job.updated_at || new Date().toISOString(), source: 'Greenhouse'
         }));
       }
-    } catch (e) { /* skip */ }
+    } catch (e) { return []; }
     return [];
   });
-  
-  const results = await Promise.all(fetchPromises);
-  const flatResults = results.flat();
-  console.log(`🟢 Greenhouse: Found ${flatResults.length} jobs`);
-  return flatResults;
+  return (await Promise.all(promises)).flat();
 }
 
-// ==================== ✅ BULLETPROOF LEVER FETCHER ====================
-async function fetchFromLever(targetCompanies: string[], searchTerms: string[]): Promise<any[]> {
-  const verifiedLeverCompanies = [
-    'uber', 'coinbase', 'robinhood', 'notion', 'airbnb', 'lyft', 'twitch', 
-    'discord', 'shopify', 'grammarly', 'coursera', 'asana', 'reddit', 'figma',
-    'dropbox', 'trello', 'zendesk', 'hubspot', 'square', 'block', 'instacart'
-  ];
-
-  const termsToSearch = searchTerms.slice(0, 3).map(t => t.toLowerCase());
-  console.log(`🟡 Lever: Searching for terms: ${termsToSearch.join(', ')}`);
-
-  const fetchPromises = verifiedLeverCompanies.map(async (company) => {
+async function fetchFromLever(searchTerms: string[]): Promise<any[]> {
+  const verified = ['uber', 'coinbase', 'robinhood', 'notion', 'airbnb', 'lyft', 'twitch', 'discord', 'shopify', 'grammarly', 'coursera', 'asana', 'reddit', 'figma', 'dropbox', 'instacart', 'twitter', 'pinterest', 'yelp'];
+  const terms = searchTerms.slice(0, 3).map(t => t.toLowerCase());
+  const promises = verified.map(async (company) => {
     try {
-      const url = `https://api.lever.co/v0/postings/${company}?mode=json`;
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
-      
-      const res = await fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'jobswitchers/1.0' } });
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // ✅ FIX: Lowered to 5s
+      const res = await fetch(`https://api.lever.co/v0/postings/${company}?mode=json`, { signal: controller.signal });
       clearTimeout(timeoutId);
-      
       if (res.ok) {
         const data = await res.json();
-        const jobs = Array.isArray(data) ? data : [];
-        
-        const matchedJobs = jobs.filter((job: any) => {
-          const title = (job.text || '').toLowerCase();
-          const description = (job.description || '').toLowerCase();
-          return termsToSearch.some(term => {
-            const termWords = term.split(/\s+/).filter(w => w.length > 3);
-            return termWords.some(word => title.includes(word)) || title.includes(term) || description.includes(term);
-          });
-        });
-
-        const finalJobs = matchedJobs.length > 0 ? matchedJobs : jobs.slice(0, 2);
-
-        return finalJobs.map((job: any) => ({
-          id: `lever-${company}-${job.id}`,
-          title: job.text || 'Unknown',
-          company: company.charAt(0).toUpperCase() + company.slice(1),
-          location: job.categories?.location || 'Remote',
-          url: job.hostedUrl || `https://jobs.lever.co/${company}/${job.id}`,
-          description: (job.description || '').replace(/<[^>]*>/g, '').substring(0, 1000),
-          postedDate: new Date().toISOString(),
-          source: 'Lever',
+        return (Array.isArray(data) ? data : []).filter((job: any) => terms.some(term => (job.text + ' ' + job.description).toLowerCase().includes(term))).slice(0, 2).map((job: any) => ({
+          id: `lever-${company}-${job.id}`, title: job.text, company: company.charAt(0).toUpperCase() + company.slice(1),
+          location: job.categories?.location || 'Remote', url: job.hostedUrl, description: (job.description || '').replace(/<[^>]*>/g, '').substring(0, 500),
+          postedDate: new Date().toISOString(), source: 'Lever'
         }));
       }
-    } catch (e) { /* skip */ }
+    } catch (e) { return []; }
     return [];
   });
-  
-  const results = await Promise.all(fetchPromises);
-  const flatResults = results.flat();
-  console.log(`🟡 Lever: Found ${flatResults.length} jobs`);
-  return flatResults;
+  return (await Promise.all(promises)).flat();
 }
 
-// ==================== ✅ BULLETPROOF ASHBY FETCHER ====================
-async function fetchFromAshby(targetCompanies: string[], searchTerms: string[]): Promise<any[]> {
-  const verifiedAshbyCompanies = [
-    'rippling', 'deel', 'loom', 'vercel', 'linear', 'ramp', 'mercury', 'brex', 
-    'plaid', 'webflow', 'framer', 'retool', 'superhuman', 'notion', 'figma',
-    'canva', 'doordash', 'robinhood', 'twitch', 'discord', 'shopify', 'github'
-  ];
-
-  const termsToSearch = searchTerms.slice(0, 3).map(t => t.toLowerCase());
-  console.log(`🔵 Ashby: Searching for terms: ${termsToSearch.join(', ')}`);
-
-  const fetchPromises = verifiedAshbyCompanies.map(async (company) => {
+async function fetchFromAshby(searchTerms: string[]): Promise<any[]> {
+  const verified = ['rippling', 'deel', 'loom', 'vercel', 'linear', 'ramp', 'mercury', 'brex', 'plaid', 'webflow', 'framer', 'retool', 'notion', 'figma', 'canva', 'doordash', 'robinhood', 'shopify', 'github', 'discord', 'twitch', 'roblox', 'unity'];
+  const terms = searchTerms.slice(0, 3).map(t => t.toLowerCase());
+  const promises = verified.map(async (company) => {
     try {
-      const url = `https://api.ashbyhq.com/posting-api/job-board/${company}`;
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
-      
-      const res = await fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'jobswitchers/1.0' } });
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // ✅ FIX: Lowered to 5s
+      const res = await fetch(`https://api.ashbyhq.com/posting-api/job-board/${company}`, { signal: controller.signal });
       clearTimeout(timeoutId);
-      
       if (res.ok) {
         const data = await res.json();
-        const jobs = data.jobPostings || [];
-        
-        const matchedJobs = jobs.filter((job: any) => {
-          const title = (job.title || '').toLowerCase();
-          const description = (job.description || '').toLowerCase();
-          return termsToSearch.some(term => {
-            const termWords = term.split(/\s+/).filter(w => w.length > 3);
-            return termWords.some(word => title.includes(word)) || title.includes(term) || description.includes(term);
-          });
-        });
-
-        const finalJobs = matchedJobs.length > 0 ? matchedJobs : jobs.slice(0, 2);
-
-        return finalJobs.map((job: any) => ({
-          id: `ashby-${company}-${job.id}`,
-          title: job.title || 'Unknown',
-          company: company.charAt(0).toUpperCase() + company.slice(1),
-          location: job.locationName || 'Remote',
-          url: job.applicationUrl || job.url || '#',
-          description: (job.description || '').replace(/<[^>]*>/g, '').substring(0, 1000),
-          postedDate: job.publishedDate || new Date().toISOString(),
-          source: 'Ashby',
+        return (data.jobPostings || []).filter((job: any) => terms.some(term => (job.title + ' ' + job.description).toLowerCase().includes(term))).slice(0, 2).map((job: any) => ({
+          id: `ashby-${company}-${job.id}`, title: job.title, company: company.charAt(0).toUpperCase() + company.slice(1),
+          location: job.locationName || 'Remote', url: job.applicationUrl || job.url || '#', description: (job.description || '').replace(/<[^>]*>/g, '').substring(0, 500),
+          postedDate: job.publishedDate || new Date().toISOString(), source: 'Ashby'
         }));
       }
-    } catch (e) { /* skip */ }
+    } catch (e) { return []; }
     return [];
   });
-  
-  const results = await Promise.all(fetchPromises);
-  const flatResults = results.flat();
-  console.log(` Ashby: Found ${flatResults.length} jobs`);
-  return flatResults;
+  return (await Promise.all(promises)).flat();
 }
 
-// ==================== POST API ====================
+// ==================== POST API (ADVANCED DETERMINISTIC ENGINE) ====================
 export async function POST(req: NextRequest) {
   try {
-    console.log("📄 Enhanced Deep CV Analysis with Cloudflare Workers AI & 4 Job Sources...");
+    console.log("🧠 Advanced Deterministic CV Analysis (Dynamic NLP - No Hardcoding)...");
     
-    const formData = await req.formData();
-    const file = formData.get('cv') as File;
-    const userLocation = (formData.get('location') as string) || "";
-    const userLat = formData.get('latitude') as string;
-    const userLng = formData.get('longitude') as string;
-    
-    if (!file) return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
+    const body = await req.json();
+    const { text, hash, sessionId, location, latitude, longitude } = body;
 
-    let cvText = "";
-    try { cvText = await readFileContent(file); } 
-    catch (readError: any) {
-      return NextResponse.json({ success: false, message: readError.message || "Could not read file content." }, { status: 400 });
+    if (!text || !hash || !sessionId) {
+      return NextResponse.json({ error: 'Missing required fields (text, hash, sessionId)' }, { status: 400 });
     }
+
+    // 1. ✅ DYNAMIC EXTRACTION (No Hardcoding!)
+    const roleData = extractDynamicRole(text);
+    const dynamicSkills = extractDynamicSkills(text);
+    const dynamicIndustries = detectDynamicIndustry(dynamicSkills);
+
+    // 2. Experience Timeline
+    const experienceData = calculateExperienceTimeline(text);
+
+    // 3. Determine Seniority dynamically
+    let seniority = "Mid-Level";
+    const years = experienceData.totalExperienceYears;
+    const roleLower = roleData.primaryRole.toLowerCase();
     
-    if (!cvText || cvText.trim().length < 50) {
-      return NextResponse.json({ success: false, message: "Could not read CV content." }, { status: 400 });
+    if (roleLower.includes('intern') || roleLower.includes('trainee')) seniority = "Intern";
+    else if (years === 0) seniority = "Fresher";
+    else if (years <= 2) seniority = "Junior";
+    else if (years >= 8 && (roleLower.includes('head') || roleLower.includes('director') || roleLower.includes('vp') || roleLower.includes('manager'))) seniority = "Manager";
+    else if (years >= 5) seniority = "Senior";
+
+    // 4. Advanced ATS Scoring & Salary Estimation
+    const atsData = calculateAdvancedATSScore(text, dynamicSkills, experienceData);
+    const salaryData = estimateAdvancedSalary(roleData.primaryRole, experienceData, seniority, dynamicIndustries, dynamicSkills);
+
+    // ✅ FIX 2: Clean the role before searching to avoid sending messy strings to APIs
+    const cleanRole = cleanJobTitle(roleData.primaryRole);
+    const searchTerms = [cleanRole, ...dynamicSkills.slice(0, 2)].slice(0, 3);    
+    
+    console.log("🎯 Extracted Role:", roleData.primaryRole);
+    console.log("🛠️ Top Dynamic Skills:", dynamicSkills.slice(0, 5));
+    console.log("🏭 Detected Industry:", dynamicIndustries);
+    console.log("🔍 Search Terms sent to APIs:", searchTerms);
+
+    // 5. Database Operations
+    try {
+      await prisma.appSession.upsert({
+        where: { session_id: sessionId },
+        update: { tier: 'free', updated_at: new Date() },
+        create: { session_id: sessionId, tier: 'free' }
+      });
+
+      const resume = await prisma.resume.upsert({
+        where: { text_hash: hash },
+        update: {
+          session_id: sessionId,
+          raw_text: text.substring(0, 5000),
+          summary: text.substring(0, 200)
+        },
+        create: {
+          session_id: sessionId,
+          text_hash: hash,
+          raw_text: text.substring(0, 5000),
+          summary: text.substring(0, 200)
+        }
+      });
+
+      if (dynamicSkills.length > 0 && resume.id) {
+        try {
+          await prisma.resumeSkill.createMany({
+            data: dynamicSkills.map(skill => ({ resume_id: resume.id, skill_name: skill })),
+            skipDuplicates: true
+          });
+        } catch (skillError) {
+          console.warn("⚠️ Skill save skipped:", skillError);
+        }
+      }
+
+      if (resume.id) {
+        await prisma.atsScore.upsert({
+          where: { resume_id: resume.id },
+          update: { total_score: atsData.score },
+          create: { resume_id: resume.id, total_score: atsData.score }
+        });
+
+        await prisma.salaryEstimate.upsert({
+          where: { resume_id: resume.id },
+          update: {
+            conservative: salaryData.min * 100000,
+            average: ((salaryData.min + salaryData.max) / 2) * 100000,
+            premium: salaryData.max * 100000,
+            currency: "INR"
+          },
+          create: {
+            resume_id: resume.id,
+            conservative: salaryData.min * 100000,
+            average: ((salaryData.min + salaryData.max) / 2) * 100000,
+            premium: salaryData.max * 100000,
+            currency: "INR"
+          }
+        });
+      }
+      console.log("✅ DB Records saved/updated successfully for session:", sessionId);
+    } catch (dbError) {
+      console.warn("⚠️ Prisma DB save failed (Non-critical):", dbError);
     }
-    
-    const aiAnalysis = await analyzeCVWithCloudflare(cvText, file.name);
-    
-    const APP_ID = process.env.ADZUNA_APP_ID;
-    const API_KEY = process.env.ADZUNA_API_KEY;
-    if (!APP_ID || !API_KEY) return NextResponse.json({ error: 'API keys missing' }, { status: 500 });
-    
+
+    // 6. Location Logic (70KM RADIUS - Pan India Optimized)
     let searchLocations: string[] = [];
     let userCoords: { lat: number; lon: number } | null = null;
     
-    if (userLat && userLng && userLat !== "null" && userLng !== "null") {
-      const lat = parseFloat(userLat);
-      const lon = parseFloat(userLng);
+    // PRIORITY 1: Use exact GPS coordinates if provided by frontend
+    if (latitude && longitude) {
+      const lat = parseFloat(latitude);
+      const lon = parseFloat(longitude);
       userCoords = { lat, lon };
       
       if (lat > 6 && lat < 38 && lon > 68 && lon < 98) {
         const nearby = await getNearbyCities(lat, lon, 70);
-        searchLocations = nearby.length > 0 ? nearby : ["India"];
+        searchLocations = nearby.length > 0 ? nearby : (location && location.trim() !== "" ? [location] : ["India"]);
       } else {
         searchLocations = ["USA"];
       }
-    } else if (userLocation && userLocation.trim() !== "" && userLocation.toLowerCase() !== "india") {
-      searchLocations = [userLocation];
-      const knownCity = MAJOR_CITIES.find(c => c.name.toLowerCase() === userLocation.toLowerCase());
+    } 
+    // PRIORITY 2: Fallback to text-based location if GPS is denied
+    else if (location && location.trim() !== "" && location.toLowerCase() !== "india") {
+      const knownCity = MAJOR_CITIES.find(c => location.toLowerCase().includes(c.name.toLowerCase()));
+      
       if (knownCity) {
         const nearby = await getNearbyCities(knownCity.lat, knownCity.lon, 70);
-        searchLocations = [...new Set([userLocation, ...nearby])];
+        searchLocations = [...new Set([knownCity.name, ...nearby])];
+      } else {
+        searchLocations = [location, `${location}, India`];
       }
-    } else {
-      searchLocations = ["India"];
+    } 
+    // PRIORITY 4: Ultimate fallback
+    else {
+      searchLocations = ["India", "Remote"];
     }
     
-    console.log("📍 Search Locations:", searchLocations);
-    
-    let searchTerms = [...aiAnalysis.searchTerms];
-    if (!searchTerms.some(t => t.toLowerCase().includes(aiAnalysis.primaryRole.toLowerCase()))) {
-      searchTerms.unshift(aiAnalysis.primaryRole);
+    // ✅ FIX: Always include "Remote" in search locations
+    if (!searchLocations.includes("Remote")) {
+      searchLocations.push("Remote");
     }
-    searchTerms = [...new Set(searchTerms.filter(term => term && term.trim().length > 0))].slice(0, 5);
     
-    console.log("🚀 Fetching from 4 job sources...");
-    const fetchPromises: Promise<any[]>[] = [];
-    
-    const limitedLocations = searchLocations.slice(0, 4);
-    const limitedTerms = searchTerms.slice(0, 2);
-    
-    console.log(`📍 Adzuna Locations: ${limitedLocations.join(', ')}`);
-    console.log(`🔍 Adzuna Terms: ${limitedTerms.join(', ')}`);
+    console.log("📍 User Location Input:", location || "None");
+    console.log("🗺️ Final Search Locations:", searchLocations);
 
-    for (const location of limitedLocations) {
-      for (const term of limitedTerms) {
-        const url = `https://api.adzuna.com/v1/api/jobs/in/search/1?app_id=${APP_ID}&app_key=${API_KEY}&results_per_page=25&what=${encodeURIComponent(term)}&where=${encodeURIComponent(location)}&max_days_old=30&content-type=application/json`;
-        
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => {
-          controller.abort();
-        }, 25000);
-        
-        fetchPromises.push(
-          fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'jobswitchers/1.0' } })
-            .then(async (response) => {
-              clearTimeout(timeoutId);
-              if (response.ok) {
-                const data = await response.json();
-                console.log(`✅ Adzuna: Found ${(data.results || []).length} jobs for "${term}" in ${location}`);
-                return (data.results || []).map((job: any) => ({
-                  ...job,
-                  source: 'Adzuna',
-                  company: job.company?.display_name || 'Unknown',
-                  location: job.location?.display_name || 'Unknown',
-                  url: job.redirect_url || '#',
-                  description: job.description || '',
-                  postedDate: job.created || new Date().toISOString(),
-                }));
-              }
-              console.warn(`⚠️ Adzuna failed for ${term} in ${location}: ${response.status}`);
-              return [];
-            })
-            .catch(err => {
-              clearTimeout(timeoutId);
-              if (err.name !== 'AbortError') {
-                console.error(`❌ Error fetching ${term} in ${location}:`, err.message);
-              }
-              return [];
-            })
-        );
-      }
-    }
+    // 7. Job Matching Engine
+    let matchedJobs: any[] = [];
+    const APP_ID = process.env.ADZUNA_APP_ID;
+    const API_KEY = process.env.ADZUNA_API_KEY;
     
-    fetchPromises.push(fetchFromGreenhouse(aiAnalysis.targetCompanies, searchTerms));
-    fetchPromises.push(fetchFromLever(aiAnalysis.targetCompanies, searchTerms));
-    fetchPromises.push(fetchFromAshby(aiAnalysis.targetCompanies, searchTerms));
-    
-    const resultsArrays = await Promise.all(fetchPromises);
-    const allRawJobs = resultsArrays.flat();
-    console.log(`📊 Total raw jobs fetched: ${allRawJobs.length}`);
-    
-    const processedJobs = allRawJobs.map(job => {
-      let jobCity = "";
-      let distance: number | null = null;
-      let isWithinRadius = true;
+    if (APP_ID && API_KEY) {
+      const limitedLocations = searchLocations.slice(0, 4);
+      const fetchPromises: Promise<any[]>[] = [];
       
-      if (job.location) {
-        const parts = (typeof job.location === 'string' ? job.location : (job.location as any).name || '').split(',');
-        jobCity = parts[0]?.trim() || "";
-      }
-      
-      if (userCoords && jobCity) {
-        const cityLower = jobCity.toLowerCase();
-        const matchedMajorCity = MAJOR_CITIES.find(c => cityLower.includes(c.name.toLowerCase()));
-        if (matchedMajorCity) {
-          distance = calculateDistance(userCoords.lat, userCoords.lon, matchedMajorCity.lat, matchedMajorCity.lon);
-          isWithinRadius = distance <= 70;
+      for (const loc of limitedLocations) {
+        for (const term of searchTerms) {
+          const url = `https://api.adzuna.com/v1/api/jobs/in/search/1?app_id=${APP_ID}&app_key=${API_KEY}&results_per_page=25&what=${encodeURIComponent(term)}&where=${encodeURIComponent(loc)}&max_days_old=30&content-type=application/json`;
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 8000); // ✅ FIX: Lowered to 8s
+          
+          fetchPromises.push(
+            fetch(url, { signal: controller.signal })
+              .then(async (response) => {
+                clearTimeout(timeoutId);
+                if (response.ok) {
+                  const data = await response.json();
+                  return (data.results || []).map((job: any) => {
+                    let jobCity = "";
+                    let distance: number | null = null;
+                    let isWithinRadius = true;
+
+                    if (job.location?.display_name) {
+                      const parts = job.location.display_name.split(',');
+                      jobCity = parts[0]?.trim() || "";
+                    }
+
+                    if (userCoords && jobCity) {
+                      const cityLower = jobCity.toLowerCase();
+                      const matchedMajorCity = MAJOR_CITIES.find(c => cityLower.includes(c.name.toLowerCase()));
+                      if (matchedMajorCity) {
+                        distance = calculateDistance(userCoords.lat, userCoords.lon, matchedMajorCity.lat, matchedMajorCity.lon);
+                        isWithinRadius = distance <= 70;
+                      }
+                    }
+
+                    const candidateDataForMatch = {
+                      primaryRole: roleData.primaryRole,
+                      secondaryRoles: roleData.secondaryRoles,
+                      totalExperienceYears: experienceData.totalExperienceYears,
+                      skills: dynamicSkills,
+                      industries: dynamicIndustries
+                    };
+
+                    const matchPercentage = calculateWeightedJobMatch(
+                      text, 
+                      job.title || '', 
+                      job.description || '', 
+                      candidateDataForMatch
+                    );
+
+                    return {
+                      id: job.id, title: job.title, company: job.company?.display_name || 'Unknown',
+                      location: job.location?.display_name || 'Unknown', city: jobCity,
+                      description: (job.description || '').substring(0, 500), url: job.redirect_url || '#',
+                      postedDate: job.created,
+                      matchPercentage,
+                      matchingSkills: dynamicSkills.slice(0, 3), 
+                      primaryRole: roleData.primaryRole, 
+                      distance, 
+                      withinRadius: isWithinRadius, 
+                      source: 'Adzuna'
+                    };
+                  });
+                }
+                return [];
+              })
+              .catch(() => { clearTimeout(timeoutId); return []; })
+          );
         }
       }
       
-      const matchPercentage = calculateMatchPercentage(job.title || '', job.description || '', aiAnalysis);
+      fetchPromises.push(fetchFromGreenhouse(searchTerms));
+      fetchPromises.push(fetchFromLever(searchTerms));
+      fetchPromises.push(fetchFromAshby(searchTerms));
       
-      return {
-        id: job.id || `${job.source}-${Math.random().toString(36).substr(2, 9)}`,
-        title: job.title || "Unknown",
-        company: job.company || "Unknown",
-        location: job.location || "Unknown",
-        city: jobCity,
-        description: (job.description || "").replace(/<[^>]*>/g, '').substring(0, 500),
-        url: job.url || "#",
-        postedDate: new Date(job.postedDate || Date.now()),
-        matchPercentage: matchPercentage,
-        matchingSkills: aiAnalysis.keySkills.filter((skill: string) => 
-          (job.title + ' ' + job.description).toLowerCase().includes(skill.toLowerCase())
-        ).slice(0, 5),
-        primaryRole: aiAnalysis.primaryRole,
-        distance: distance,
-        withinRadius: isWithinRadius,
-        source: job.source || 'Unknown',
-      };
-    });
-    
+      const resultsArrays = await Promise.all(fetchPromises);
+      matchedJobs = resultsArrays.flat();
+
+      console.log("📦 TOTAL RAW JOBS FETCHED:", matchedJobs.length);
+      console.log("   ├─ Adzuna:", matchedJobs.filter(j => j.source === 'Adzuna').length);
+      console.log("   ├─ Greenhouse:", matchedJobs.filter(j => j.source === 'Greenhouse').length);
+      console.log("   ├─ Lever:", matchedJobs.filter(j => j.source === 'Lever').length);
+      console.log("   └─ Ashby:", matchedJobs.filter(j => j.source === 'Ashby').length);
+    }
+
+    // 8. Strict Filtering & Sorting
     const seenUrls = new Set<string>();
     const now = new Date();
     
-    const filteredJobs = processedJobs
+    const filteredJobs = matchedJobs
       .filter(job => {
         if (seenUrls.has(job.url)) return false;
         seenUrls.add(job.url);
@@ -877,71 +644,82 @@ export async function POST(req: NextRequest) {
         const diffDays = (now.getTime() - new Date(job.postedDate).getTime()) / (1000 * 60 * 60 * 24);
         if (diffDays > 30) return false;
         
-        if (job.matchPercentage < 50) return false;
+        // ✅ FIX: Lowered match threshold from 40 to 30
+        if (job.matchPercentage < 30) return false; 
         
-        if (userCoords && job.distance !== null && !job.withinRadius) return false;
+        // ✅ FIX: Soft radius check. Allow Remote jobs, or jobs within 100km
+        const isRemote = job.location?.toLowerCase().includes('remote');
+        const isAcceptableDistance = job.distance === null || job.distance <= 100; 
+        
+        if (userCoords && !isRemote && !isAcceptableDistance) return false;
         
         return true;
       })
       .sort((a, b) => {
-        if (a.withinRadius && !b.withinRadius) return -1;
-        if (!a.withinRadius && b.withinRadius) return 1;
+        // ✅ FIX: Smart Sorting: Prioritize jobs within 70km OR Remote jobs first
+        const aIsPreferred = (a.distance !== null && a.distance <= 70) || a.location?.toLowerCase().includes('remote');
+        const bIsPreferred = (b.distance !== null && b.distance <= 70) || b.location?.toLowerCase().includes('remote');
+        
+        if (aIsPreferred && !bIsPreferred) return -1;
+        if (!aIsPreferred && bIsPreferred) return 1;
+        
         return b.matchPercentage - a.matchPercentage;
-      })
-      .slice(0, 50);
-    
+      });
+
+    // ✅ FIX 3: Moved declaration BEFORE console.log to prevent reference error
     const withinRadiusCount = filteredJobs.filter(j => j.withinRadius).length;
-    
     const sourceBreakdown = {
       adzuna: filteredJobs.filter(j => j.source === 'Adzuna').length,
       greenhouse: filteredJobs.filter(j => j.source === 'Greenhouse').length,
       lever: filteredJobs.filter(j => j.source === 'Lever').length,
       ashby: filteredJobs.filter(j => j.source === 'Ashby').length,
     };
+
+    console.log("🔍 FILTERING STATS:");
+    console.log("   ├─ Raw Jobs:", matchedJobs.length);
+    console.log("   ├─ Survived 30% Match & 100km Radius:", filteredJobs.length);
+    console.log("   └─ Jobs within exact 70km/Remote:", withinRadiusCount);
     
-    console.log(`✅ Final: ${filteredJobs.length} highly relevant jobs (50%+ match)`);
-    console.log(`📍 Within 70km: ${withinRadiusCount}`);
-    console.log(` Sources: Adzuna=${sourceBreakdown.adzuna}, Greenhouse=${sourceBreakdown.greenhouse}, Lever=${sourceBreakdown.lever}, Ashby=${sourceBreakdown.ashby}`);
-    
+    // 9. Final Output JSON
     return NextResponse.json({
       success: true,
-      isTechCV: true,
-      // ✅ ADD THESE TWO LINES HERE
-      isRateLimited: aiAnalysis.isRateLimited || false,
-      rateLimitMessage: aiAnalysis.rateLimitMessage || "",
+      sessionId,
+      textHash: hash,
       
-      candidateFirstName: aiAnalysis.candidateFirstName,
-      candidateFullName: aiAnalysis.candidateFullName,
-      primaryRole: aiAnalysis.primaryRole,
-      secondaryRoles: aiAnalysis.secondaryRoles,
-      keySkills: aiAnalysis.keySkills,
-      toolsAndFrameworks: aiAnalysis.toolsAndFrameworks,
-      coreResponsibilities: aiAnalysis.coreResponsibilities,
-      experienceYears: aiAnalysis.experienceYears,
-      seniorityLevel: aiAnalysis.seniorityLevel,
-      domainExpertise: aiAnalysis.domainExpertise,
-      companyPedigree: aiAnalysis.companyPedigree,
-      certifications: aiAnalysis.certifications,
-      educationLevel: aiAnalysis.educationLevel,
-      industry: aiAnalysis.industry,
-      summary: aiAnalysis.summary,
-      idealJobProfile: aiAnalysis.idealJobProfile,
-      searchTermsUsed: searchTerms,
+      primaryRole: roleData.primaryRole,
+      secondaryRoles: roleData.secondaryRoles,
+      seniority: seniority,
+      
+      totalExperienceYears: experienceData.totalExperienceYears,
+      relevantExperienceYears: experienceData.relevantExperienceYears,
+      careerProgressionAnalysis: experienceData.careerProgression,
+      progressionScore: experienceData.progressionScore,
+      leadershipExposure: experienceData.leadershipExperience,
+      
+      skills: dynamicSkills,
+      advancedSkills: dynamicSkills.slice(0, 5),
+      industries: dynamicIndustries,
+      
+      atsScore: atsData.score,
+      atsExplanations: atsData.explanations,
+      salaryEstimate: salaryData,
+      
       matchedJobs: filteredJobs,
       totalMatches: filteredJobs.length,
       withinRadiusCount,
-      sourceBreakdown: sourceBreakdown,
-      source: 'Cloudflare Workers AI + 4 Job Sources',
+      sourceBreakdown,
+      searchTermsUsed: searchTerms,
+      weightedJobMatching: true,
+      
+      source: 'Advanced Dynamic NLP Engine',
       location: searchLocations.join(', '),
-      salaryEstimate: aiAnalysis.salaryEstimate,
-      negotiationTip: aiAnalysis.negotiationTip,
       message: filteredJobs.length > 0 
-        ? `✅ Found ${filteredJobs.length} highly relevant jobs (50%+ match) from 4 sources. ${withinRadiusCount} within 70km radius.`
-        : `⚠️ No jobs with 50%+ match found. Try different search terms or location.`
+        ? `✅ Found ${filteredJobs.length} highly relevant jobs using dynamic contextual matching. ${withinRadiusCount} within 70km/Remote.`
+        : `⚠️ No jobs with 30%+ weighted match found within 100km.`
     });
     
-  } catch (error) {
-    console.error('❌ Error:', error);
-    return NextResponse.json({ error: 'Failed to process CV', details: String(error) }, { status: 500 });
+  } catch (error: any) {
+    console.error('❌ Backend Error:', error);
+    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
   }
 }

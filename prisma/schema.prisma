@@ -7,88 +7,114 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id            String    @id @default(cuid())
-  name          String
-  email         String    @unique
-  password      String?
-  mobile        String?
-  image         String?
-  applyCount    Int       @default(0)
-  createdAt     DateTime  @default(now())
-  accounts      Account[]
-  sessions      Session[]
-  uploads       CVUpload[]
-  applications  JobApplication[]
+// ✅ 1. AppSession
+model AppSession {
+  session_id    String      @id @db.VarChar(255)
+  tier          String      @default("free") @db.VarChar(50)
+  tier_expires  DateTime?   @db.Timestamptz
+  ai_calls_used Int         @default(0)
+  created_at    DateTime    @default(now()) @db.Timestamptz
+  updated_at    DateTime    @updatedAt @db.Timestamptz
+
+  resumes       Resume[]
+  payments      Payment[]
+
+  @@map("sessions")
 }
 
-model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String? @db.Text
-  session_state     String?
+// ✅ 2. Resume (FIXED: Added @db.Uuid to id)
+model Resume {
+  id         String     @id @default(uuid()) @db.Uuid
+  session_id String     @db.VarChar(255)
+  text_hash  String     @unique @db.VarChar(64)
+  raw_text   String?    @db.Text
+  contact    Json?
+  summary    String?    @db.Text
+  created_at DateTime   @default(now()) @db.Timestamptz
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
+  session         AppSession        @relation(fields: [session_id], references: [session_id], onDelete: Cascade)
+  skills          ResumeSkill[]
+  atsScore        AtsScore?
+  salaryEstimate  SalaryEstimate?
+  
+  @@map("resumes")
+  @@index([session_id])
+  @@index([text_hash])
 }
 
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+// ✅ 3. ResumeSkill (FIXED: Added @db.Uuid to id)
+model ResumeSkill {
+  id         String  @id @default(uuid()) @db.Uuid
+  resume_id  String  @db.Uuid
+  skill_name String  @db.VarChar(100)
+
+  resume     Resume  @relation(fields: [resume_id], references: [id], onDelete: Cascade)
+
+  @@map("resume_skills")
+  @@index([resume_id])
 }
 
-model CVUpload {
-  id          String   @id @default(cuid())
-  userId      String
-  fileName    String
-  fileData    Bytes
-  parsedData  String   @db.Text
-  uploadedAt  DateTime @default(now())
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+// ✅ 4. AtsScore (FIXED: Added @db.Uuid to id)
+model AtsScore {
+  id                   String    @id @default(uuid()) @db.Uuid
+  resume_id            String    @db.Uuid @unique
+  total_score          Int?
+  keywords_match       Int?
+  experience_relevance Int?
+  skills_coverage      Int?
+  resume_structure     Int?
+  education_match      Int?
+  created_at           DateTime  @default(now()) @db.Timestamptz
+
+  resume     Resume    @relation(fields: [resume_id], references: [id], onDelete: Cascade)
+
+  @@map("ats_scores")
+  @@index([resume_id])
 }
 
-model Job {
-  id            String    @id @default(cuid())
-  externalId    String    @unique
-  title         String
-  company       String
-  description   String    @db.Text
-  location      String
-  latitude      Float?
-  longitude     Float?
-  applyUrl      String    @db.Text
-  postedDate    DateTime
-  salaryMin     Int?
-  salaryMax     Int?
-  skills        String    @db.Text
-  createdAt     DateTime  @default(now())
-  isSponsored   Boolean   @default(false)
-  sponsorFee    Int?
-  sponsorExpiry DateTime?
-  sponsorCompany String?
-  sponsorLogo   String?
-  applications  JobApplication[]
+// ✅ 5. SalaryEstimate (FIXED: Added @db.Uuid to id)
+model SalaryEstimate {
+  id           String    @id @default(uuid()) @db.Uuid
+  resume_id    String    @db.Uuid @unique
+  conservative Int?
+  average      Int?
+  premium      Int?
+  currency     String?   @default("INR") @db.VarChar(10)
+  created_at   DateTime  @default(now()) @db.Timestamptz
+
+  resume     Resume    @relation(fields: [resume_id], references: [id], onDelete: Cascade)
+
+  @@map("salary_estimates")
+  @@index([resume_id])
 }
 
-model JobApplication {
-  id            String   @id @default(cuid())
-  userId        String
-  jobId         String
-  appliedAt     DateTime @default(now())
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  job           Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+// ✅ 6. Payment (Updated for Instamojo)
+model Payment {
+  id                     String   @id @default(uuid()) @db.Uuid
+  session_id             String   @db.VarChar(255)
+  instamojo_payment_id   String?  @db.VarChar(100)
+  instamojo_payment_request_id String? @db.VarChar(100)
+  plan                   String   @db.VarChar(50) // 'pro' or 'bundle'
+  amount                 Int
+  status                 String   @default("pending") @db.VarChar(50) // 'pending', 'success', 'failed'
+  created_at             DateTime @default(now()) @db.Timestamptz
 
-  @@unique([userId, jobId])
+  session                AppSession @relation(fields: [session_id], references: [session_id], onDelete: Cascade)
+
+  @@map("payments")
+  @@index([session_id])
+  @@index([status])
+}
+
+// ✅ 7. AI Result (FIXED: Added @db.Uuid to id)
+model AiResult {
+  id           String   @id @default(uuid()) @db.Uuid
+  text_hash    String   @db.VarChar(64)
+  feature_name String   @db.VarChar(100)
+  result_json  Json
+  created_at   DateTime @default(now()) @db.Timestamptz
+
+  @@map("ai_results")
+  @@unique([text_hash, feature_name])
+  @@index([text_hash])
 }
