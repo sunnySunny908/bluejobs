@@ -1226,7 +1226,7 @@ function DashboardContent() {
                 </div>
               )}
 
-              <div className="flip-container" style={{ position: 'relative', minHeight: 320 }}>
+              <div className="flip-container" style={{ position: 'relative', minHeight: 380 }}>
                 <div 
                   className={`flip-card ${showAtsScore ? 'flipped' : ''}`}
                   style={{
@@ -1252,7 +1252,15 @@ function DashboardContent() {
                     <p style={styles.uploadSub}>{file ? `${(file.size / 1024).toFixed(0)} KB · Ready to upload` : "Please upload .doc, .docx, or .pdf files (Max 5MB)"}</p>
                     
                     <div style={styles.uploadActions}>
-                      <label htmlFor="cv-upload-hero" style={styles.uploadBrowse}>Browse Files</label>
+                      <label htmlFor="cv-upload-hero" style={styles.uploadBrowse}>
+  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="5" x2="12" y2="19"></line>
+      <line x1="5" y1="12" x2="19" y2="12"></line>
+    </svg>
+    Browse Files
+  </span>
+</label>
                       <input type="file" id="cv-upload-hero" accept=".doc,.docx,.pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf" onChange={handleFileChange} style={{ display: "none" }} />
                       <button onClick={handleUpload} disabled={uploading || !file} style={{ ...styles.uploadBtn, ...((uploading || !file) ? styles.uploadBtnDisabled : {}) }}>
                         {uploading ? (<><span style={styles.spinnerSmall}></span>Analyzing...</>) : ("Get Hired in 10 Mins")}
@@ -1296,61 +1304,135 @@ function DashboardContent() {
                     )}
                   </div>
 
-                  {/* BACK: ATS Score Card */}
-                  <div 
-                    className="flip-back"
-                    style={{
-                      ...styles.uploadHero,
-                      background: "#FFFFFF",
-                      border: "2px solid #10B981",
-                      transform: "rotateY(180deg)",
-                      backfaceVisibility: 'hidden',
-                      padding: "24px 16px",
-                      textAlign: "center",
-                    }}
-                  >
-                    <h3 style={{ margin: "0 0 20px 0", fontSize: 18, fontWeight: 700, color: "#1A1A1A" }}>
-                      ATS Score Analysis
-                    </h3>
-                    
-                    {skills.length > 0 && (
-                      <>
-                        <div style={{
-                          width: 140, height: 140, borderRadius: "50%",
-                          background: `conic-gradient(#10B981 ${atsScore * 3.6}deg, #E5E7EB 0deg)`,
-                          display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px auto",
-                        }}>
-                          <div style={{
-                            width: 110, height: 110, borderRadius: "50%", background: "#FFFFFF",
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                            fontSize: 32, fontWeight: 800, color: "#10B981"
-                          }}>
-                            {atsScore}%
-                          </div>
-                        </div>
-                        
-                        <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap", marginBottom: 20 }}>
-                          <div style={{ background: "rgba(16, 185, 129, 0.1)", padding: "6px 12px", borderRadius: 8, fontSize: 11, fontWeight: 600, color: "#10B981" }}>Excellent</div>
-                          <div style={{ background: "rgba(16, 185, 129, 0.1)", padding: "6px 12px", borderRadius: 8, fontSize: 11, fontWeight: 600, color: "#10B981" }}>{skills.length} Skills</div>
-                        </div>
-                      </>
-                    )}
+                  {/* BACK: ATS Score Card - Enhanced UI */}
+{/* BACK: ATS Score Card - 2 Column Layout */}
+<div 
+  className="flip-back"
+  style={{
+    ...styles.uploadHero,
+    background: "#FFFFFF",
+    border: "2px solid #10B981",
+    transform: "rotateY(180deg)",
+    backfaceVisibility: 'hidden',
+    padding: "24px 20px",
+    textAlign: "center",
+  }}
+>
+  <h3 style={{ margin: "0 0 20px 0", fontSize: 18, fontWeight: 700, color: "#1A1A1A" }}>
+    ATS Score Analysis
+  </h3>
+  
+  {skills.length > 0 && (
+    <>
+      {/* 2-Column Layout: Circle Left, Tips Right */}
+      <div style={{ 
+        display: 'flex', 
+        gap: 20, 
+        marginBottom: 20,
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        {/* Left: Circular Progress */}
+        <div style={{ flex: '0 0 auto' }}>
+          <div style={{
+            width: 130, height: 130, borderRadius: "50%",
+            background: `conic-gradient(#10B981 ${atsScore * 3.6}deg, #E5E7EB 0deg)`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <div style={{
+              width: 100, height: 100, borderRadius: "50%", background: "#FFFFFF",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 28, fontWeight: 800, color: "#10B981"
+            }}>
+              {atsScore}%
+            </div>
+          </div>
+          
+          {/* Badges Below Circle */}
+          <div style={{ display: "flex", gap: 6, justifyContent: "center", marginTop: 12, flexWrap: "wrap" }}>
+            <div style={{ background: "rgba(16, 185, 129, 0.1)", padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 600, color: "#10B981" }}>
+              {atsScore >= 80 ? 'Excellent' : atsScore >= 60 ? 'Good' : 'Fair'}
+            </div>
+            <div style={{ background: "rgba(16, 185, 129, 0.1)", padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 600, color: "#10B981" }}>
+              {skills.length} Skills
+            </div>
+          </div>
+        </div>
 
-                    <button 
-                      onClick={() => setShowAtsScore(false)}
-                      style={{
-                        background: 'linear-gradient(135deg, #0066CC 0%, #0052a3 100%)', border: 'none',
-                        padding: '10px 20px', borderRadius: 20, cursor: 'pointer', fontSize: 13,
-                        fontWeight: 700, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: 8, margin: '0 auto'
-                      }}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ transform: 'rotate(180deg)' }}>
-                        <path d="M12 5v14M19 12l-7 7-7-7" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                      Back to Upload
-                    </button>
-                                    </div>
-                </div>
+                {/* Right: ATS Tips - Professional UI */}
+        <div style={{ 
+          flex: 1, 
+          textAlign: 'left',
+          background: 'linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%)',
+          padding: '16px',
+          borderRadius: '12px',
+          border: '1px solid #E2E8F0',
+          fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+        }}>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '8px', 
+            marginBottom: '12px',
+            borderBottom: '1px solid #E2E8F0',
+            paddingBottom: '10px'
+          }}>
+            <div style={{
+              background: '#0066CC',
+              color: '#FFFFFF',
+              width: '22px',
+              height: '22px',
+              borderRadius: '6px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '12px'
+            }}>
+              ✨
+            </div>
+            <div style={{ fontSize: '13px', fontWeight: '700', color: '#0F172A', letterSpacing: '-0.01em' }}>
+              ATS Optimization Tips
+            </div>
+          </div>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {[
+              'Use standard headings (Experience, Skills)',
+              'Add industry keywords naturally',
+              'Include measurable achievements',
+              'Avoid graphics, tables & columns',
+              'Use simple fonts (Arial, Calibri)'
+            ].map((tip, idx) => (
+              <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ marginTop: '2px', flexShrink: 0 }}>
+                  <path d="M20 6L9 17L4 12" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <span style={{ fontSize: '11.5px', color: '#475569', lineHeight: '1.4', fontWeight: '500' }}>
+                  {tip}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
+  )}
+
+  <button 
+    onClick={() => setShowAtsScore(false)}
+    style={{
+      background: 'linear-gradient(135deg, #0066CC 0%, #0052a3 100%)', border: 'none',
+      padding: '10px 20px', borderRadius: 20, cursor: 'pointer', fontSize: 13,
+      fontWeight: 700, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: 8, margin: '0 auto'
+    }}
+  >
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ transform: 'rotate(180deg)' }}>
+      <path d="M12 5v14M19 12l-7 7-7-7" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+    Back to Upload
+  </button>
+</div>                </div>
               </div>
 
               {/* ✅ Infinite Auto-Scrolling Marquee */}
@@ -1468,7 +1550,7 @@ function DashboardContent() {
                     Based on your {salaryData.confidence.toLowerCase()} confidence match for current Indian market trends.
                   </p>
                   
-                  {/* ✅ NEW: Centered Orange Button to increase package */}
+                   {/* ✅ NEW: Centered Orange Button to increase package */}
                   <div style={{ marginTop: 12, textAlign: "center" }}>
                     <button 
                       onClick={() => {
@@ -1484,16 +1566,23 @@ function DashboardContent() {
                         background: "linear-gradient(135deg, #FF6B35 0%, #ff8f66 100%)",
                         color: "#FFFFFF",
                         border: "none",
-                        padding: "12px 28px",
-                        borderRadius: 10,
-                        fontSize: 14,
+                        padding: "10px 24px",
+                        borderRadius: 20,
+                        fontSize: 13,
                         fontWeight: 700,
                         cursor: "pointer",
-                        boxShadow: "0 4px 12px rgba(255, 107, 53, 0.3)",
-                        transition: "all 0.3s"
+                        boxShadow: "0 0 15px rgba(255, 107, 53, 0.5), 0 4px 12px rgba(255, 107, 53, 0.3)",
+                        transition: "all 0.3s",
+                        animation: "glow 4s ease-in-out infinite",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "8px"
                       }}
                     >
-                      📈 Click here to increase package for future roles
+                      Click here to increase package for future roles
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+                        <path d="M12 5v14M19 12l-7 7-7-7" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
                     </button>
                   </div>
                 </div>
@@ -2244,9 +2333,13 @@ if (typeof document !== 'undefined') {
         box-shadow: 0 0 25px rgba(255, 215, 0, 0.8), 0 6px 20px rgba(255, 165, 0, 0.5);
       }
     }
-    @keyframes glow {
-      0%, 100% { box-shadow: 0 0 5px rgba(255, 107, 53, 0.3), 0 0 10px rgba(255, 107, 53, 0.1); }
-      50% { box-shadow: 0 0 20px rgba(255, 107, 53, 0.6), 0 0 30px rgba(255, 107, 53, 0.3); }
+        @keyframes glow {
+      0%, 100% { 
+        box-shadow: 0 0 15px rgba(255, 107, 53, 0.5), 0 0 30px rgba(255, 107, 53, 0.3); 
+      }
+      50% { 
+        box-shadow: 0 0 25px rgba(255, 107, 53, 0.8), 0 0 45px rgba(255, 107, 53, 0.5); 
+      }
     }
     @keyframes floatLogo {
       0% { transform: translate(0, 0) rotate(0deg) scale(1); }
