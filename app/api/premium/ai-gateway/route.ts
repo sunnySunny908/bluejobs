@@ -102,10 +102,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // 1. Check Premium Status
-    const session = await prisma.session.findUnique({ where: { session_id: sessionId } });
-    if (!session || (session.tier !== 'accelerator' && session.tier !== 'premium')) {
-      return NextResponse.json({ error: 'Premium subscription required', upgradeUrl: '/dashboard?show_paywall=true' }, { status: 403 });
+        // Check Premium Status
+    const session = await prisma.appSession.findUnique({ where: { session_id: sessionId } });
+    if (!session || (session.tier !== 'accelerator' && session.tier !== 'premium' && session.tier !== 'pro' && session.tier !== 'bundle')) {
+      return NextResponse.json({ error: 'Premium subscription required', upgradeUrl: '/dashboard' }, { status: 403 });
     }
 
     if (session.tier_expires && new Date(session.tier_expires) < new Date()) {
@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
       console.log(`✅ DB Cache hit for ${feature}`);
       
       // Update AI calls counter
-      await prisma.session.update({
+      await prisma.appSession.update({
         where: { session_id: sessionId },
         data: { ai_calls_used: { increment: 1 } }
       });
@@ -159,7 +159,7 @@ export async function POST(req: NextRequest) {
       });
       
       // Update AI calls counter
-      await prisma.session.update({
+      await prisma.appSession.update({
         where: { session_id: sessionId },
         data: { ai_calls_used: { increment: 1 } }
       });
