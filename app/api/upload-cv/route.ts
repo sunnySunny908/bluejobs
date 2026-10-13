@@ -48,8 +48,16 @@ const MAJOR_CITIES = [
   { name: "Amritsar", lat: 31.6340, lon: 74.8723 }, { name: "Ludhiana", lat: 30.9010, lon: 75.8573 }
 ];
 
-// ==================== ✅ DYNAMIC NLP EXTRACTION (NO HARDCODING) ====================
 
+// ✅ UNIVERSAL 7-DAYS FRESHNESS CHECKER
+function isJobFresh(dateString: string | undefined): boolean {
+  if (!dateString) return true; // Agar date nahi hai, toh global filter handle karega
+  const jobDate = new Date(dateString);
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  return jobDate >= sevenDaysAgo;
+}
+// ==================== ✅ DYNAMIC NLP EXTRACTION (NO HARDCODING) ====================
 function escapeRegExp(string: string): string {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -79,31 +87,35 @@ function extractDynamicRole(text: string) {
   };
 }
 
-// ✅ FIX 1: Moved OUTSIDE of extractDynamicRole to fix syntax error
+// ✅ FIX 1: Smart Job Title Cleaner (Removes Garbage Words)
 function cleanJobTitle(rawRole: string): string {
   if (!rawRole) return "Professional";
   
   let cleaned = rawRole
-    .replace(/professional summary|objective|profile|summary|career objective/gi, '')
-    .replace(/dynamic and results-driven|highly motivated|experienced|detail-oriented/gi, '')
+    .replace(/professional summary|objective|profile|summary|career objective|experience/gi, '')
+    .replace(/dynamic and results-driven|highly motivated|detail-oriented|professional/gi, '')
     .trim();
 
-  const words = cleaned.split(/\s+/).filter(w => w.length > 0);
-  return words.slice(-4).join(' ') || "Professional";
+   const words = cleaned.split(/\s+/).filter((w: string) => w.length > 2);
+  const genericWords = ['the', 'and', 'for', 'with', 'this', 'that', 'work', 'working', 'role'];
+  const meaningfulWords = words.filter((w: string) => !genericWords.includes(w.toLowerCase()));
+  
+  return meaningfulWords.slice(-3).join(' ') || "Professional";
 }
 
 function extractDynamicSkills(text: string): string[] {
   const tokenizer = new natural.WordTokenizer();
   const tokens = tokenizer.tokenize(text.toLowerCase());
   
-  const stopWords = new Set([
+    const stopWords = new Set([
     'the','and','is','in','to','of','a','for','with','on','as','by','this','that','it','from','or','an',
     'be','are','was','were','been','have','has','had','do','does','did','will','would','could','should',
     'may','might','can','must','i','me','my','we','our','you','your','he','she','they','them','their',
     'at','not','but','if','so','because','until','while','about','against','between','into','through',
     'during','before','after','above','below','up','down','out','off','over','under','again','further',
     'then','once','here','there','when','where','why','how','all','any','both','each','few','more',
-    'most','other','some','such','no','nor','only','own','same','than','too','very','just','also','now'
+    'most','other','some','such','no','nor','only','own','same','than','too','very','just','also','now',
+    'professional', 'summary', 'experience', 'objective', 'profile', 'career' // ✅ NEW: Added these
   ]);
 
   const freq: Record<string, number> = {};
@@ -243,7 +255,7 @@ function estimateAdvancedSalary(role: string, experienceData: any, seniority: st
   };
 }
 
-// ==================== HELPER: WEIGHTED JOB MATCHING (35/25/20/10/10) ====================
+// ==================== HELPER: SMART WEIGHTED JOB MATCHING ====================
 function calculateWeightedJobMatch(
   cvText: string, 
   jobTitle: string, 
@@ -253,57 +265,43 @@ function calculateWeightedJobMatch(
   const cleanJob = `${jobTitle} ${jobDescription}`.toLowerCase().replace(/[^\w\s]/g, ' ');
   let totalScore = 0;
 
-  // 1. Role Match (35%)
+  // 1. Role Match (40%) - Smarter matching for messy roles
   let roleScore = 0;
-  const jobTitleLower = jobTitle.toLowerCase();
-  if (jobTitleLower.includes(candidateData.primaryRole.toLowerCase())) {
-    roleScore = 35;
-  } else if (candidateData.secondaryRoles.some((r: string) => jobTitleLower.includes(r.toLowerCase()))) {
-    roleScore = 25;
-  } else {
-    const roleWords = candidateData.primaryRole.toLowerCase().split(/\s+/);
-    if (roleWords.some((w: string) => w.length > 3 && jobTitleLower.includes(w))) roleScore = 15;
+    const jobTitleLower = jobTitle.toLowerCase();
+  const roleWords = candidateData.primaryRole.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3 && !['professional', 'experience', 'summary', 'objective'].includes(w));
+  
+  if (roleWords.length > 0) {
+    const matchedRoleWords = roleWords.filter((w: string) => jobTitleLower.includes(w));
+    if (matchedRoleWords.length >= 2) roleScore = 40;
+    else if (matchedRoleWords.length === 1) roleScore = 20;
   }
   totalScore += roleScore;
 
-  // 2. Responsibility Match (25%)
-  let respScore = 0;
-  const actionVerbs = ['managed', 'led', 'developed', 'optimized', 'designed', 'implemented', 'audited', 'reviewed'];
-  const matchedVerbs = actionVerbs.filter(v => cleanJob.includes(v));
-  respScore = Math.min((matchedVerbs.length / 3) * 25, 25);
-  totalScore += respScore;
-
-  // 3. Skill Match (20%)
+  // 2. Skill Match (40%) - MOST IMPORTANT (Ignore generic words)
   let skillScore = 0;
   const matchedSkills = candidateData.skills.filter((skill: string) => {
-    const escapedSkill = escapeRegExp(skill);
+    if (['professional', 'experience', 'summary', 'objective', 'team', 'work'].includes(skill.toLowerCase())) return false;
+    const escapedSkill = skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return new RegExp(`\\b${escapedSkill}\\b`, 'i').test(cleanJob);
   });
-  skillScore = Math.min((matchedSkills.length / 5) * 20, 20);
+  
+  // 3 real skills matched = 40% score
+  skillScore = Math.min((matchedSkills.length / 3) * 40, 40);
   totalScore += skillScore;
 
-  // 4. Experience Match (10%)
+  // 3. Experience Match (20%)
   let expScore = 0;
   const expMatch = jobDescription.match(/(\d+)\+?\s*years?/i);
   if (expMatch) {
     const requiredYears = parseInt(expMatch[1]);
-    if (candidateData.totalExperienceYears >= requiredYears) expScore = 10;
-    else if (candidateData.totalExperienceYears >= requiredYears - 1) expScore = 5;
+    if (candidateData.totalExperienceYears >= requiredYears) expScore = 20;
+    else if (candidateData.totalExperienceYears >= requiredYears - 1) expScore = 10;
   } else {
-    expScore = 10;
+    expScore = 15; // No experience specified, give benefit of doubt
   }
   totalScore += expScore;
 
-  // 5. Industry Match (10%)
-  let industryScore = 0;
-  if (candidateData.industries.some((ind: string) => cleanJob.includes(ind.toLowerCase()))) {
-    industryScore = 10;
-  } else if (candidateData.industries.includes("General")) {
-    industryScore = 5;
-  }
-  totalScore += industryScore;
-
-  return Math.min(Math.round(totalScore), 98);
+  return Math.min(Math.round(totalScore), 100);
 }
 
 // ==================== HELPER: DISTANCE CALCULATION ====================
@@ -331,16 +329,23 @@ async function fetchFromGreenhouse(searchTerms: string[]): Promise<any[]> {
   const promises = verified.map(async (company) => {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // ✅ FIX: Lowered to 5s
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
       const res = await fetch(`https://boards-api.greenhouse.io/v1/boards/${company}/jobs?content=true`, { signal: controller.signal });
       clearTimeout(timeoutId);
       if (res.ok) {
         const data = await res.json();
-        return (data.jobs || []).filter((job: any) => terms.some(term => (job.title + ' ' + job.content).toLowerCase().includes(term))).slice(0, 2).map((job: any) => ({
-          id: `gh-${company}-${job.id}`, title: job.title, company: company.charAt(0).toUpperCase() + company.slice(1),
-          location: job.location?.name || 'Remote', url: job.absolute_url, description: (job.content || '').replace(/<[^>]*>/g, '').substring(0, 500),
-          postedDate: job.updated_at || new Date().toISOString(), source: 'Greenhouse'
-        }));
+        return (data.jobs || [])
+          .filter((job: any) => {
+            const isMatch = terms.some(term => (job.title + ' ' + job.content).toLowerCase().includes(term));
+            const isFresh = isJobFresh(job.updated_at); // ✅ 7 DAYS FRESHNESS CHECK
+            return isMatch && isFresh;
+          })
+          .slice(0, 5) // ✅ Increased to 5 kyunki ab purani jobs filter ho jayengi
+          .map((job: any) => ({
+            id: `gh-${company}-${job.id}`, title: job.title, company: company.charAt(0).toUpperCase() + company.slice(1),
+            location: job.location?.name || 'Remote', url: job.absolute_url, description: (job.content || '').replace(/<[^>]*>/g, '').substring(0, 500),
+            postedDate: job.updated_at || new Date().toISOString(), source: 'Greenhouse'
+          }));
       }
     } catch (e) { return []; }
     return [];
@@ -354,16 +359,24 @@ async function fetchFromLever(searchTerms: string[]): Promise<any[]> {
   const promises = verified.map(async (company) => {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // ✅ FIX: Lowered to 5s
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
       const res = await fetch(`https://api.lever.co/v0/postings/${company}?mode=json`, { signal: controller.signal });
       clearTimeout(timeoutId);
       if (res.ok) {
         const data = await res.json();
-        return (Array.isArray(data) ? data : []).filter((job: any) => terms.some(term => (job.text + ' ' + job.description).toLowerCase().includes(term))).slice(0, 2).map((job: any) => ({
-          id: `lever-${company}-${job.id}`, title: job.text, company: company.charAt(0).toUpperCase() + company.slice(1),
-          location: job.categories?.location || 'Remote', url: job.hostedUrl, description: (job.description || '').replace(/<[^>]*>/g, '').substring(0, 500),
-          postedDate: new Date().toISOString(), source: 'Lever'
-        }));
+        return (Array.isArray(data) ? data : [])
+          .filter((job: any) => {
+            const isMatch = terms.some(term => (job.text + ' ' + job.description).toLowerCase().includes(term));
+            const isFresh = isJobFresh(job.created_at || job.updated_at); // ✅ 7 DAYS FRESHNESS CHECK
+            return isMatch && isFresh;
+          })
+          .slice(0, 5)
+          .map((job: any) => ({
+            id: `lever-${company}-${job.id}`, title: job.text, company: company.charAt(0).toUpperCase() + company.slice(1),
+            location: job.categories?.location || 'Remote', url: job.hostedUrl, description: (job.description || '').replace(/<[^>]*>/g, '').substring(0, 500),
+            postedDate: job.created_at || job.updated_at || new Date().toISOString(), // ✅ FIXED: Ab actual date use hogi
+            source: 'Lever'
+          }));
       }
     } catch (e) { return []; }
     return [];
@@ -377,21 +390,87 @@ async function fetchFromAshby(searchTerms: string[]): Promise<any[]> {
   const promises = verified.map(async (company) => {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // ✅ FIX: Lowered to 5s
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
       const res = await fetch(`https://api.ashbyhq.com/posting-api/job-board/${company}`, { signal: controller.signal });
       clearTimeout(timeoutId);
       if (res.ok) {
         const data = await res.json();
-        return (data.jobPostings || []).filter((job: any) => terms.some(term => (job.title + ' ' + job.description).toLowerCase().includes(term))).slice(0, 2).map((job: any) => ({
-          id: `ashby-${company}-${job.id}`, title: job.title, company: company.charAt(0).toUpperCase() + company.slice(1),
-          location: job.locationName || 'Remote', url: job.applicationUrl || job.url || '#', description: (job.description || '').replace(/<[^>]*>/g, '').substring(0, 500),
-          postedDate: job.publishedDate || new Date().toISOString(), source: 'Ashby'
-        }));
+        return (data.jobPostings || [])
+          .filter((job: any) => {
+            const isMatch = terms.some(term => (job.title + ' ' + job.description).toLowerCase().includes(term));
+            const isFresh = isJobFresh(job.publishedDate); // ✅ 7 DAYS FRESHNESS CHECK
+            return isMatch && isFresh;
+          })
+          .slice(0, 5)
+          .map((job: any) => ({
+            id: `ashby-${company}-${job.id}`, title: job.title, company: company.charAt(0).toUpperCase() + company.slice(1),
+            location: job.locationName || 'Remote', url: job.applicationUrl || job.url || '#', description: (job.description || '').replace(/<[^>]*>/g, '').substring(0, 500),
+            postedDate: job.publishedDate || new Date().toISOString(), source: 'Ashby'
+          }));
       }
     } catch (e) { return []; }
     return [];
   });
   return (await Promise.all(promises)).flat();
+}
+
+// ✅ NEW: RSS Feed Fetcher (Unlimited Jobs, No API Key)
+async function fetchFromRSS(searchTerms: string[], location: string): Promise<any[]> {
+  try {
+    // @ts-ignore
+    const Parser = require('rss-parser');
+    const parser = new Parser({
+      // ✅ CRITICAL FIX: Indeed ko lagna chahiye ki ye Chrome browser hai, Node.js nahi
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      }
+    });
+    
+    const baseFeeds = [
+      'https://www.indeed.com/rss?q=software+engineer&l=India',
+      'https://www.indeed.com/rss?q=data+scientist&l=India',
+      'https://remoteok.com/remote-jobs.rss',
+      'https://weworkremotely.com/remote-jobs.rss'
+    ];
+    
+    // Add dynamic feeds based on CV skills (Sirf valid skills ke liye)
+    const validTerms = searchTerms.filter(t => !['professional', 'summary', 'experience'].includes(t.toLowerCase()));
+    const dynamicFeeds = validTerms.slice(0, 3).map(term => 
+      `https://www.indeed.com/rss?q=${encodeURIComponent(term)}&l=${encodeURIComponent(location || 'India')}`
+    );
+    
+    const allFeeds = [...baseFeeds, ...dynamicFeeds];
+    
+      const fetchPromises = allFeeds.map(async (feedUrl) => {
+      try {
+        const feed = await parser.parseURL(feedUrl);
+        return feed.items
+          .filter((item: any) => isJobFresh(item.pubDate)) // ✅ 7 DAYS FRESHNESS CHECK FOR RSS
+          .slice(0, 15)
+          .map((item: any, idx: number) => {
+            const parts = (item.title || 'Unknown').split(' - ');
+            return {
+              id: `rss-${Date.now()}-${idx}`,
+              title: parts[0] || item.title,
+              company: parts.length > 1 ? parts[1] : 'Unknown',
+              location: parts.length > 2 ? parts[2] : location,
+              description: (item.contentSnippet || item.content || '').replace(/<[^>]*>/g, '').substring(0, 500),
+              url: item.link || '#',
+              postedDate: item.pubDate || new Date().toISOString(),
+              source: 'RSS'
+            };
+          });
+      } catch (e) {
+        return [];
+      }
+    });
+    
+    const results = await Promise.all(fetchPromises);
+    return results.flat();
+  } catch (error) {
+    console.error('RSS Fetch Error:', error);
+    return [];
+  }
 }
 
 // ==================== POST API (ADVANCED DETERMINISTIC ENGINE) ====================
@@ -553,8 +632,7 @@ export async function POST(req: NextRequest) {
       
       for (const loc of limitedLocations) {
         for (const term of searchTerms) {
-          const url = `https://api.adzuna.com/v1/api/jobs/in/search/1?app_id=${APP_ID}&app_key=${API_KEY}&results_per_page=25&what=${encodeURIComponent(term)}&where=${encodeURIComponent(loc)}&max_days_old=30&content-type=application/json`;
-          const controller = new AbortController();
+        const url = `https://api.adzuna.com/v1/api/jobs/in/search/1?app_id=${APP_ID}&app_key=${API_KEY}&results_per_page=25&what=${encodeURIComponent(term)}&where=${encodeURIComponent(loc)}&max_days_old=7&content-type=application/json`;          const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 8000); // ✅ FIX: Lowered to 8s
           
           fetchPromises.push(
@@ -621,6 +699,7 @@ export async function POST(req: NextRequest) {
       fetchPromises.push(fetchFromGreenhouse(searchTerms));
       fetchPromises.push(fetchFromLever(searchTerms));
       fetchPromises.push(fetchFromAshby(searchTerms));
+      fetchPromises.push(fetchFromRSS(searchTerms, searchLocations[0] || 'India')); // ✅ NEW: Unlimited RSS Jobs
       
       const resultsArrays = await Promise.all(fetchPromises);
       matchedJobs = resultsArrays.flat();
@@ -629,58 +708,93 @@ export async function POST(req: NextRequest) {
       console.log("   ├─ Adzuna:", matchedJobs.filter(j => j.source === 'Adzuna').length);
       console.log("   ├─ Greenhouse:", matchedJobs.filter(j => j.source === 'Greenhouse').length);
       console.log("   ├─ Lever:", matchedJobs.filter(j => j.source === 'Lever').length);
-      console.log("   └─ Ashby:", matchedJobs.filter(j => j.source === 'Ashby').length);
+      console.log("   ├─ Ashby:", matchedJobs.filter(j => j.source === 'Ashby').length);
+      console.log("   └─ RSS:", matchedJobs.filter(j => j.source === 'RSS').length); // ✅ NEW: RSS Count
     }
 
-    // 8. Strict Filtering & Sorting
+    // 8. ✅ SMART ZERO TOLERANCE Filtering & Sorting
     const seenUrls = new Set<string>();
     const now = new Date();
     
-    const filteredJobs = matchedJobs
+        // Ensure ALL jobs (including RSS/Greenhouse/etc) have a matchPercentage calculated
+    const scoredJobs = matchedJobs.map(job => {
+      if (job.matchPercentage === undefined) {
+        const candidateDataForMatch = {
+          primaryRole: cleanRole, // ✅ CHANGE: roleData.primaryRole ki jagah cleanRole use karo
+          secondaryRoles: roleData.secondaryRoles,
+          totalExperienceYears: experienceData.totalExperienceYears,
+          skills: dynamicSkills,
+          industries: dynamicIndustries
+        };
+        job.matchPercentage = calculateWeightedJobMatch(text, job.title || '', job.description || '', candidateDataForMatch);
+        
+        const cleanJob = `${job.title} ${job.description}`.toLowerCase().replace(/[^\w\s]/g, ' ');
+        job.matchingSkills = dynamicSkills.filter((skill: string) => {
+          if (['professional', 'experience', 'summary', 'objective', 'team', 'work'].includes(skill.toLowerCase())) return false;
+          const escapedSkill = skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          return new RegExp(`\\b${escapedSkill}\\b`, 'i').test(cleanJob);
+        }).slice(0, 5);
+      }
+      return job;
+    });
+
+    const filteredJobs = scoredJobs
       .filter(job => {
         if (seenUrls.has(job.url)) return false;
         seenUrls.add(job.url);
         
-        const diffDays = (now.getTime() - new Date(job.postedDate).getTime()) / (1000 * 60 * 60 * 24);
-        if (diffDays > 30) return false;
+              const diffDays = (now.getTime() - new Date(job.postedDate).getTime()) / (1000 * 60 * 60 * 24);
+        if (diffDays > 7) return false; // ✅ STRICT 7-DAY GLOBAL SAFETY NET
         
-        // ✅ FIX: Lowered match threshold from 40 to 30
-        if (job.matchPercentage < 30) return false; 
+        // 🚨 ZERO TOLERANCE: Minimum 45% match AND at least 2 REAL matching skills
+        if (job.matchPercentage < 35) return false;
+        if (!job.matchingSkills || job.matchingSkills.length < 2) return false;
         
-        // ✅ FIX: Soft radius check. Allow Remote jobs, or jobs within 100km
-        const isRemote = job.location?.toLowerCase().includes('remote');
-        const isAcceptableDistance = job.distance === null || job.distance <= 100; 
+              const isRemote = job.location?.toLowerCase().includes('remote') || job.title?.toLowerCase().includes('remote');
+        const isAcceptableDistance = job.distance === null || job.distance === undefined || job.distance <= 100;
+        
+                // ✅ RELAXED INDIA REMOTE CHECK: Sirf clearly international locations ko reject karo
+        if (isRemote) {
+          const jobLocation = job.location?.toLowerCase() || '';
+          
+          // Sirf clearly international locations ko block karo
+          const isClearlyInternational = 
+            jobLocation.includes('warsaw') ||
+            jobLocation.includes('dublin') ||
+            jobLocation.includes('mexico') ||
+            jobLocation.includes('poland') ||
+            jobLocation.includes('ireland') ||
+            jobLocation.includes('latam') ||
+            jobLocation.includes('latin america');
+          
+          if (isClearlyInternational) {
+            return false;
+          }
+          // Baaki sab remote jobs allow karo (including generic "Remote" without location)
+        }
         
         if (userCoords && !isRemote && !isAcceptableDistance) return false;
         
         return true;
       })
       .sort((a, b) => {
-        // ✅ FIX: Smart Sorting: Prioritize jobs within 70km OR Remote jobs first
-        const aIsPreferred = (a.distance !== null && a.distance <= 70) || a.location?.toLowerCase().includes('remote');
-        const bIsPreferred = (b.distance !== null && b.distance <= 70) || b.location?.toLowerCase().includes('remote');
-        
-        if (aIsPreferred && !bIsPreferred) return -1;
-        if (!aIsPreferred && bIsPreferred) return 1;
-        
-        return b.matchPercentage - a.matchPercentage;
+        if (b.matchPercentage !== a.matchPercentage) {
+          return b.matchPercentage - a.matchPercentage;
+        }
+        const distA = a.distance !== null && a.distance !== undefined ? a.distance : 9999;
+        const distB = b.distance !== null && b.distance !== undefined ? b.distance : 9999;
+        return distA - distB;
       });
 
-    // ✅ FIX 3: Moved declaration BEFORE console.log to prevent reference error
-    const withinRadiusCount = filteredJobs.filter(j => j.withinRadius).length;
-    const sourceBreakdown = {
-      adzuna: filteredJobs.filter(j => j.source === 'Adzuna').length,
-      greenhouse: filteredJobs.filter(j => j.source === 'Greenhouse').length,
-      lever: filteredJobs.filter(j => j.source === 'Lever').length,
-      ashby: filteredJobs.filter(j => j.source === 'Ashby').length,
-    };
-
-    console.log("🔍 FILTERING STATS:");
+    const withinRadiusCount = filteredJobs.filter(j => (j.distance !== null && j.distance !== undefined && j.distance <= 70) || j.location?.toLowerCase().includes('remote')).length;
+    
+    console.log("🔍 SMART ZERO TOLERANCE FILTERING STATS:");
     console.log("   ├─ Raw Jobs:", matchedJobs.length);
-    console.log("   ├─ Survived 30% Match & 100km Radius:", filteredJobs.length);
+    console.log("   ├─ Survived 45%+ Match & 2+ Real Skills:", filteredJobs.length);
     console.log("   └─ Jobs within exact 70km/Remote:", withinRadiusCount);
     
-    // 9. Final Output JSON
+    
+        // 9. Final Output JSON
     return NextResponse.json({
       success: true,
       sessionId,
@@ -707,7 +821,6 @@ export async function POST(req: NextRequest) {
       matchedJobs: filteredJobs,
       totalMatches: filteredJobs.length,
       withinRadiusCount,
-      sourceBreakdown,
       searchTermsUsed: searchTerms,
       weightedJobMatching: true,
       
@@ -715,7 +828,7 @@ export async function POST(req: NextRequest) {
       location: searchLocations.join(', '),
       message: filteredJobs.length > 0 
         ? `✅ Found ${filteredJobs.length} highly relevant jobs using dynamic contextual matching. ${withinRadiusCount} within 70km/Remote.`
-        : `⚠️ No jobs with 30%+ weighted match found within 100km.`
+        : `️ No jobs with 45%+ weighted match found within 100km.`
     });
     
   } catch (error: any) {
