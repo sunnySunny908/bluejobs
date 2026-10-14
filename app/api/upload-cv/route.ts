@@ -481,8 +481,15 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { text, hash, sessionId, location, latitude, longitude } = body;
 
-    if (!text || !hash || !sessionId) {
-      return NextResponse.json({ error: 'Missing required fields (text, hash, sessionId)' }, { status: 400 });
+        // ✅ PERMANENT FIX: If sessionId missing, generate one on backend
+    let finalSessionId = sessionId;
+    if (!finalSessionId || finalSessionId.length < 10) {
+      finalSessionId = 'server-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+      console.log('⚠️ Backend generated session_id:', finalSessionId);
+    }
+    
+    if (!text || !hash) {
+      return NextResponse.json({ error: 'Missing required fields (text, hash)' }, { status: 400 });
     }
 
     // 1. ✅ DYNAMIC EXTRACTION (No Hardcoding!)
@@ -520,20 +527,20 @@ export async function POST(req: NextRequest) {
     // 5. Database Operations
     try {
       await prisma.appSession.upsert({
-        where: { session_id: sessionId },
+        where: { session_id: finalSessionId },
         update: { tier: 'free', updated_at: new Date() },
-        create: { session_id: sessionId, tier: 'free' }
+        create: { session_id: finalSessionId, tier: 'free' } // ✅ FIXED
       });
 
       const resume = await prisma.resume.upsert({
         where: { text_hash: hash },
         update: {
-          session_id: sessionId,
+          session_id: finalSessionId, // ✅ FIXED
           raw_text: text.substring(0, 5000),
           summary: text.substring(0, 200)
         },
         create: {
-          session_id: sessionId,
+          session_id: finalSessionId, // ✅ FIXED
           text_hash: hash,
           raw_text: text.substring(0, 5000),
           summary: text.substring(0, 200)
@@ -575,7 +582,7 @@ export async function POST(req: NextRequest) {
           }
         });
       }
-      console.log("✅ DB Records saved/updated successfully for session:", sessionId);
+      console.log("✅ DB Records saved/updated successfully for session:", finalSessionId); // ✅ FIXED
     } catch (dbError) {
       console.warn("⚠️ Prisma DB save failed (Non-critical):", dbError);
     }
@@ -750,30 +757,61 @@ export async function POST(req: NextRequest) {
         if (job.matchPercentage < 35) return false;
         if (!job.matchingSkills || job.matchingSkills.length < 2) return false;
         
-              const isRemote = job.location?.toLowerCase().includes('remote') || job.title?.toLowerCase().includes('remote');
-        const isAcceptableDistance = job.distance === null || job.distance === undefined || job.distance <= 100;
+        const jobLocation = job.location?.toLowerCase() || '';
+        const jobDescription = job.description?.toLowerCase() || '';
+        const jobTitle = job.title?.toLowerCase() || '';
+        const isRemote = jobLocation.includes('remote') || jobTitle.includes('remote');
         
-                // ✅ RELAXED INDIA REMOTE CHECK: Sirf clearly international locations ko reject karo
         if (isRemote) {
-          const jobLocation = job.location?.toLowerCase() || '';
+          // ✅ STRICT REMOTE CHECK: Must be India-specific
+          const isIndiaRemote = 
+            jobLocation.includes('india') ||
+            jobLocation.includes('bangalore') || jobLocation.includes('bengaluru') ||
+            jobLocation.includes('mumbai') || jobLocation.includes('delhi') ||
+            jobLocation.includes('hyderabad') || jobLocation.includes('pune') ||
+            jobLocation.includes('chennai') || jobLocation.includes('kolkata') ||
+            jobLocation.includes('noida') || jobLocation.includes('gurgaon') ||
+            jobLocation.includes('gurugram') ||
+            jobDescription.includes('india') || jobDescription.includes('ist timezone') ||
+            jobDescription.includes('india timezone') || jobDescription.includes('indian candidates') ||
+            jobTitle.includes('india');
           
-          // Sirf clearly international locations ko block karo
-          const isClearlyInternational = 
-            jobLocation.includes('warsaw') ||
-            jobLocation.includes('dublin') ||
-            jobLocation.includes('mexico') ||
-            jobLocation.includes('poland') ||
-            jobLocation.includes('ireland') ||
-            jobLocation.includes('latam') ||
-            jobLocation.includes('latin america');
-          
-          if (isClearlyInternational) {
-            return false;
+          if (!isIndiaRemote) {
+            return false; // ❌ Block non-India remote jobs (e.g., "Remote, San Francisco")
           }
-          // Baaki sab remote jobs allow karo (including generic "Remote" without location)
+        } else {
+          // ✅ STRICT ON-SITE CHECK: Must be in India
+          // Check 1: If distance is calculated and > 100km, reject
+          if (job.distance !== null && job.distance !== undefined && job.distance > 100) {
+            return false; 
+          }
+          
+          // Check 2: If distance is null (not in Indian cities list), it's likely international. 
+          // Only allow if it explicitly says "India" or an Indian city.
+          if (job.distance === null || job.distance === undefined) {
+            const isExplicitlyIndian = 
+              jobLocation.includes('india') ||
+              jobLocation.includes('bangalore') || jobLocation.includes('bengaluru') ||
+              jobLocation.includes('mumbai') || jobLocation.includes('delhi') ||
+              jobLocation.includes('hyderabad') || jobLocation.includes('pune') ||
+              jobLocation.includes('chennai') || jobLocation.includes('kolkata') ||
+              jobLocation.includes('noida') || jobLocation.includes('gurgaon') ||
+              jobLocation.includes('gurugram') || jobLocation.includes('faridabad') ||
+              jobLocation.includes('ghaziabad') || jobLocation.includes('meerut') ||
+              jobLocation.includes('agra') || jobLocation.includes('varanasi') ||
+              jobLocation.includes('patna') || jobLocation.includes('bhopal') ||
+              jobLocation.includes('indore') || jobLocation.includes('nagpur') ||
+              jobLocation.includes('surat') || jobLocation.includes('vadodara') ||
+              jobLocation.includes('coimbatore') || jobLocation.includes('kochi') ||
+              jobLocation.includes('visakhapatnam') || jobLocation.includes('jaipur') ||
+              jobLocation.includes('lucknow') || jobLocation.includes('chandigarh') ||
+              jobDescription.includes('india') || jobTitle.includes('india');
+            
+            if (!isExplicitlyIndian) {
+              return false; // ❌ Block international on-site jobs (e.g., "San Francisco", "London")
+            }
+          }
         }
-        
-        if (userCoords && !isRemote && !isAcceptableDistance) return false;
         
         return true;
       })
@@ -790,14 +828,14 @@ export async function POST(req: NextRequest) {
     
     console.log("🔍 SMART ZERO TOLERANCE FILTERING STATS:");
     console.log("   ├─ Raw Jobs:", matchedJobs.length);
-    console.log("   ├─ Survived 45%+ Match & 2+ Real Skills:", filteredJobs.length);
+    console.log("   ├─ Survived 35%+ Match & 2+ Real Skills:", filteredJobs.length);
     console.log("   └─ Jobs within exact 70km/Remote:", withinRadiusCount);
     
     
         // 9. Final Output JSON
-    return NextResponse.json({
+        return NextResponse.json({
       success: true,
-      sessionId,
+      sessionId: finalSessionId,
       textHash: hash,
       
       primaryRole: roleData.primaryRole,

@@ -924,8 +924,31 @@ function DashboardContent() {
   };
 
   // ✅ UPDATED: handleUpload now uses JSON instead of FormData and saves textHash for Premium AI
-  const handleUpload = async () => {
+    const handleUpload = async () => {
     if (!file) return;
+    
+    // ✅ PERMANENT FIX: Ensure session_id exists BEFORE upload (works on all devices)
+    let currentSessionId = localStorage.getItem('session_id');
+    if (!currentSessionId || currentSessionId.length < 10) {
+      // Generate new session using safe method
+      try {
+        if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+          currentSessionId = crypto.randomUUID();
+        } else {
+          currentSessionId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            const r = (Math.random() * 16) | 0;
+            const v = c === 'x' ? r : (r & 0x3) | 0x8;
+            return v.toString(16);
+          });
+        }
+      } catch (e) {
+        // Ultimate fallback
+        currentSessionId = 'user-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+      }
+      localStorage.setItem('session_id', currentSessionId);
+      setSessionId(currentSessionId);
+      console.log('✅ Session created for new user:', currentSessionId);
+    }
     
     setUploading(true);
     setMessage("Parsing CV locally...");
@@ -1015,9 +1038,10 @@ function DashboardContent() {
       } else {
         setMessage(data.error || "Upload failed");
       }
-    } catch (error) {
+        } catch (error: any) {
       console.error("Upload error:", error);
-      setMessage("Network error. Please try again.");
+      const errorMsg = error?.message || 'Unknown error';
+      setMessage(`Upload failed. Please check your internet connection and try again.`);
     } finally {
       setUploading(false);
     }
