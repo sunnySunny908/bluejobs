@@ -923,14 +923,13 @@ function DashboardContent() {
     }
   };
 
-  // ✅ UPDATED: handleUpload now uses JSON instead of FormData and saves textHash for Premium AI
-    const handleUpload = async () => {
+   // ✅ UPDATED: handleUpload now uses JSON instead of FormData and saves textHash for Premium AI
+  const handleUpload = async () => {
     if (!file) return;
     
     // ✅ PERMANENT FIX: Ensure session_id exists BEFORE upload (works on all devices)
     let currentSessionId = localStorage.getItem('session_id');
     if (!currentSessionId || currentSessionId.length < 10) {
-      // Generate new session using safe method
       try {
         if (typeof crypto !== 'undefined' && crypto.randomUUID) {
           currentSessionId = crypto.randomUUID();
@@ -942,7 +941,6 @@ function DashboardContent() {
           });
         }
       } catch (e) {
-        // Ultimate fallback
         currentSessionId = 'user-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
       }
       localStorage.setItem('session_id', currentSessionId);
@@ -985,7 +983,10 @@ function DashboardContent() {
         }
       }
 
-      // 3. Send JSON payload to backend
+      // 3. Send JSON payload to backend (With Mobile Timeout Handling)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds timeout for mobile
+
       const res = await fetch('/api/upload-cv', { 
         method: "POST", 
         headers: { 
@@ -999,21 +1000,30 @@ function DashboardContent() {
           location: finalLocation || "India",
           latitude: finalLat,
           longitude: finalLng
-        })
+        }),
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
+      
+      if (!res.ok) {
+        throw new Error(`Server responded with ${res.status}`);
+      }
       
       const data = await res.json();
 
       if (data.success === false) {
         setMessage(data.message || "Upload failed. Please try again.");
-        setSkills([]); setJobs([]); setAppliedJobs(new Set());
+        setSkills([]); 
+        setJobs([]); 
+        setAppliedJobs(new Set());
         setUploading(false);
         return;
       }
 
       if (data.success) {
-        setSkills(data.skills || []); // ✅ Backend 'skills' bhejta hai, 'keySkills' nahi (Ye main bug tha!)
-        setAtsScore(data.atsScore || 0); // ✅ ATS Score ko save kar rahe hain
+        setSkills(data.skills || []); 
+        setAtsScore(data.atsScore || 0); 
         setJobs(data.matchedJobs || []);
         setAppliedJobs(new Set());
         setCandidateName(data.candidateFirstName || "");
@@ -1038,10 +1048,13 @@ function DashboardContent() {
       } else {
         setMessage(data.error || "Upload failed");
       }
-        } catch (error: any) {
+    } catch (error: any) {
       console.error("Upload error:", error);
-      const errorMsg = error?.message || 'Unknown error';
-      setMessage(`Upload failed. Please check your internet connection and try again.`);
+      if (error.name === 'AbortError') {
+        setMessage("Request timed out. Please try again on a stable network.");
+      } else {
+        setMessage(`Upload failed. Please check your internet connection.`);
+      }
     } finally {
       setUploading(false);
     }
