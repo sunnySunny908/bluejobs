@@ -985,7 +985,7 @@ function DashboardContent() {
 
       // 3. Send JSON payload to backend (With Mobile Timeout Handling)
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds timeout for mobile
+      const timeoutId = setTimeout(() => controller.abort(), 90000); // ✅ 60 seconds: Heavy AI processing needs more time
 
       const res = await fetch('/api/upload-cv', { 
         method: "POST", 
@@ -1711,63 +1711,131 @@ function DashboardContent() {
               </h3>
               <div style={styles.jobsGrid}>
                 {jobs.map((job, idx) => {
-  const isLocked = !isPremium && idx >= 20;
-  
-  return (
-    <React.Fragment key={idx}>
-      <div style={{
-        ...styles.jobCard,
-        ...(isLocked ? {
-          filter: 'blur(3px)',
-          opacity: 0.5,
-          position: 'relative' as const
-        } : {}),
-        transition: 'all 0.3s'
-      }}>
-        <div style={styles.jobHeader}>
-          <div>
-            <h4 style={styles.jobTitle}>{job.title || "Unknown"}</h4>
-            <p style={styles.jobCompany}>{job.company || "Unknown"}</p>
-          </div>
-          
-                    {/* ✅ SPARKLE BUTTON ON ALL JOBS */}
-          <button
-            onClick={() => setShowPaywall(true)}
-            style={{
-              background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',
-              border: 'none',
-              padding: '6px 12px',
-              borderRadius: '20px',
-              fontSize: '11px',
-              fontWeight: '800',
-              cursor: 'pointer',
-              color: '#1A1A1A',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              boxShadow: '0 0 15px rgba(255, 215, 0, 0.5), 0 4px 12px rgba(255, 165, 0, 0.3)',
-              animation: 'sparkle 2s infinite',
-              zIndex: 10
-            }}
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"/>
-            </svg>
-            Free Upgrade
-          </button>
-        </div>
+                  const isLocked = !isPremium && idx >= 20;
+                  
+                  return (
+                    <React.Fragment key={idx}>
+                      <div style={{
+                        ...styles.jobCard,
+                        ...(isLocked ? {
+                          filter: 'blur(4px)',
+                          opacity: 0.6,
+                          position: 'relative' as const,
+                          pointerEvents: 'none'
+                        } : {}),
+                        transition: 'all 0.3s ease',
+                        border: '1px solid rgba(0,0,0,0.04)',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.03)'
+                      }}>
+                        <div style={{ ...styles.jobHeader, marginBottom: '12px' }}>
+                          <div style={{ flex: 1, paddingRight: '12px' }}>
+                            <h4 style={{ ...styles.jobTitle, fontSize: '16px', lineHeight: '1.4' }}>{job.title || "Unknown"}</h4>
+                            <p style={{ ...styles.jobCompany, fontSize: '13px', marginTop: '4px' }}>{job.company || "Unknown"}</p>
+                            
+                            {/* ✅ GOD-LEVEL: AI Match Score & Reason */}
+                            {!isLocked && job.matchPercentage && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
+                                <div style={{
+                                  background: job.matchPercentage >= 75 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255, 107, 53, 0.1)',
+                                  color: job.matchPercentage >= 75 ? '#10B981' : '#FF6B35',
+                                  padding: '4px 10px',
+                                  borderRadius: '20px',
+                                  fontSize: '12px',
+                                  fontWeight: '800',
+                                  border: `1px solid ${job.matchPercentage >= 75 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 107, 53, 0.2)'}`,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}>
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"/>
+                                  </svg>
+                                  {typeof job.matchPercentage === 'number' ? `${job.matchPercentage}% Match` : 'Match'}
+                                </div>
+                                {job.matchReason && typeof job.matchReason === 'string' && (
+                                  <span style={{ fontSize: '12px', color: 'rgba(26, 26, 26, 0.6)', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <span>✨</span> {job.matchReason}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* ✅ SPARKLE BUTTON (Only if locked, positioned cleanly) */}
+                          {isLocked && (
+                            <button
+                              onClick={() => setShowPaywall(true)}
+                              style={{
+                                background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',
+                                border: 'none',
+                                padding: '8px 14px',
+                                borderRadius: '20px',
+                                fontSize: '11px',
+                                fontWeight: '800',
+                                cursor: 'pointer',
+                                color: '#1A1A1A',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                boxShadow: '0 0 15px rgba(255, 215, 0, 0.4)',
+                                animation: 'sparkle 2s infinite',
+                                zIndex: 10,
+                                position: 'absolute',
+                                top: '16px',
+                                right: '16px',
+                                pointerEvents: 'auto'
+                              }}
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"/>
+                              </svg>
+                              Unlock
+                            </button>
+                          )}
+                        </div>
                         
-                        {job.location && job.location !== "India" && <p style={styles.jobLocation}>{job.location}</p>}
-                        {job.distance && job.distance !== null && <p style={styles.jobDistance}>{typeof job.distance === 'number' ? job.distance.toFixed(1) : job.distance} km away</p>}
+                        {/* Location & Distance with Icons */}
+                        <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                          {job.location && job.location !== "India" && (
+                            <p style={{ ...styles.jobLocation, margin: 0, display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px' }}>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                              {job.location}
+                            </p>
+                          )}
+                          {job.distance !== null && job.distance !== undefined && (
+                            <p style={{ ...styles.jobDistance, margin: 0, display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px' }}>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                              {typeof job.distance === 'number' ? job.distance.toFixed(1) : job.distance} km away
+                            </p>
+                          )}
+                        </div>
                         
+                        {/* ✅ GOD-LEVEL: Highlighted Matching Skills */}
                         {job.matchingSkills && job.matchingSkills.length > 0 && (
-                          <div style={styles.matchingSkills}>
-                            {job.matchingSkills.slice(0, 4).map((skill: string, i: number) => (
-                              <span key={i} style={styles.smallSkillTag}>{skill}</span>
+                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '16px' }}>
+                            {job.matchingSkills.slice(0, 5).map((skill: string, i: number) => (
+                              <span key={i} style={{
+                                background: 'rgba(16, 185, 129, 0.08)',
+                                color: '#10B981',
+                                padding: '4px 10px',
+                                borderRadius: '8px',
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                border: '1px solid rgba(16, 185, 129, 0.15)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}>
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                                  <path d="M20 6L9 17L4 12" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                                {skill}
+                              </span>
                             ))}
                           </div>
                         )}
                         
+                        {/* ✅ Rounder Apply Button */}
                         {isLocked ? (
                           <button
                             onClick={() => setShowPaywall(true)}
@@ -1781,7 +1849,8 @@ function DashboardContent() {
                               position: 'relative',
                               zIndex: 10,
                               filter: 'none',
-                              pointerEvents: 'auto'
+                              pointerEvents: 'auto',
+                              borderRadius: '12px' // ✅ Rounder corners
                             }}
                           >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1794,14 +1863,30 @@ function DashboardContent() {
                           <button 
                             onClick={() => handleApply(job)} 
                             disabled={appliedJobs.has(job.id)} 
-                            style={{ ...styles.applyBtn, ...(appliedJobs.has(job.id) ? styles.applyBtnDisabled : {}) }}
+                            style={{ 
+                              ...styles.applyBtn, 
+                              borderRadius: '12px', // ✅ Rounder corners for Apply Now
+                              ...(appliedJobs.has(job.id) ? styles.applyBtnDisabled : {}) 
+                            }}
                           >
-                            {appliedJobs.has(job.id) ? "Applied" : "Apply Now"}
+                            {appliedJobs.has(job.id) ? (
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                  <path d="M20 6L9 17L4 12" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                                Applied
+                              </span>
+                            ) : (
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                Apply Now
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                  <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                              </span>
+                            )}
                           </button>
                         )}
                       </div>
-                      
-                
                     </React.Fragment>
                   );
                 })}
@@ -2267,12 +2352,12 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
    jobCard: {
     background: "#FFFFFF",
-    borderRadius: 12,
-    padding: 16,
-    border: "1px solid rgba(0,0,0,0.05)",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
-    transition: "all 0.3s",
-    marginBottom: 12,
+    borderRadius: "16px", // ✅ Slightly rounder for modern, friendly feel
+    padding: "20px", // ✅ More breathing room for better readability
+    border: "1px solid rgba(0,0,0,0.04)",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.03)",
+    transition: "all 0.3s ease",
+    marginBottom: 16,
   },
 
   jobHeader: {
@@ -2332,14 +2417,17 @@ const styles: { [key: string]: React.CSSProperties } = {
     background: "linear-gradient(135deg, #0066CC 0%, #0052a3 100%)",
     color: "#FFFFFF",
     border: "none",
-    padding: "10px",
-    borderRadius: 10,
+    padding: "12px", // ✅ Slightly taller for better mobile touch target
+    borderRadius: "12px", // ✅ Rounder corners as requested
     fontSize: 14,
     fontWeight: 700,
     cursor: "pointer",
     width: "100%",
     transition: "all 0.3s",
-    boxShadow: "0 2px 10px rgba(0, 102, 204, 0.2)",
+    boxShadow: "0 4px 12px rgba(0, 102, 204, 0.25)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
   applyBtnDisabled: {
     background: "rgba(26,26,26,0.05)",
@@ -2487,6 +2575,11 @@ if (typeof document !== 'undefined') {
     [class*="uploadBtn"]:hover:not(:disabled) {
       transform: translateY(-2px);
       box-shadow: 0 8px 25px rgba(255, 107, 53, 0.4);
+    }
+    /* ✅ NEW: Premium hover effect for Apply Now button */
+    [class*="applyBtn"]:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 102, 204, 0.4) !important;
     }
     input:focus {
       border-color: #0066CC !important;

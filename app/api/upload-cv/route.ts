@@ -87,27 +87,38 @@ function extractDynamicRole(text: string) {
   };
 }
 
-// ✅ FIX 1: Smart Job Title Cleaner (Removes Garbage Words)
+// ✅ GOD-LEVEL: Smart Job Title Cleaner (Extracts Core Title Only)
 function cleanJobTitle(rawRole: string): string {
   if (!rawRole) return "Professional";
   
   let cleaned = rawRole
-    .replace(/professional summary|objective|profile|summary|career objective|experience/gi, '')
-    .replace(/dynamic and results-driven|highly motivated|detail-oriented|professional/gi, '')
+    .replace(/professional summary|objective|profile|summary|career objective|experience|professional/gi, '')
+    .replace(/dynamic and results-driven|highly motivated|detail-oriented/gi, '')
     .trim();
 
-   const words = cleaned.split(/\s+/).filter((w: string) => w.length > 2);
-  const genericWords = ['the', 'and', 'for', 'with', 'this', 'that', 'work', 'working', 'role'];
+  const words = cleaned.split(/\s+/).filter((w: string) => w.length > 2);
+  
+  // ✅ Added 'reporting' to generic words because it's usually a duty, not the core title
+  const genericWords = ['the', 'and', 'for', 'with', 'this', 'that', 'work', 'working', 'role', 'reporting']; 
+  
   const meaningfulWords = words.filter((w: string) => !genericWords.includes(w.toLowerCase()));
   
-  return meaningfulWords.slice(-3).join(' ') || "Professional";
+  // ✅ Take the last 2 words, which are usually the actual job title (e.g., "Finance Executive")
+  return meaningfulWords.slice(-2).join(' ') || "Finance Professional";
 }
+
+// ✅ GOD-LEVEL: Skill Synonym Mapping for Semantic Matching
+const SKILL_SYNONYMS: Record<string, string> = {
+  'js': 'javascript', 'reactjs': 'react', 'node': 'nodejs', 'ml': 'machine learning',
+  'ai': 'artificial intelligence', 'aws': 'amazon web services', 'ts': 'typescript',
+  'sql': 'database', 'mongo': 'mongodb', 'excel': 'microsoft excel', 'ppt': 'powerpoint'
+};
 
 function extractDynamicSkills(text: string): string[] {
   const tokenizer = new natural.WordTokenizer();
   const tokens = tokenizer.tokenize(text.toLowerCase());
   
-    const stopWords = new Set([
+  const stopWords = new Set([
     'the','and','is','in','to','of','a','for','with','on','as','by','this','that','it','from','or','an',
     'be','are','was','were','been','have','has','had','do','does','did','will','would','could','should',
     'may','might','can','must','i','me','my','we','our','you','your','he','she','they','them','their',
@@ -115,23 +126,22 @@ function extractDynamicSkills(text: string): string[] {
     'during','before','after','above','below','up','down','out','off','over','under','again','further',
     'then','once','here','there','when','where','why','how','all','any','both','each','few','more',
     'most','other','some','such','no','nor','only','own','same','than','too','very','just','also','now',
-    'professional', 'summary', 'experience', 'objective', 'profile', 'career' // ✅ NEW: Added these
+    'professional', 'summary', 'experience', 'objective', 'profile', 'career', 'team', 'work', 'role'
   ]);
 
   const freq: Record<string, number> = {};
   tokens.forEach(token => {
-    const cleanToken = token.replace(/[^a-z]/g, '');
-    if (cleanToken.length > 3 && !stopWords.has(cleanToken)) {
-      freq[cleanToken] = (freq[cleanToken] || 0) + 1;
+    const cleanToken = token.replace(/[^a-z0-9.+#]/g, ''); // Allow #, +, . for C#, .NET, etc.
+    if (cleanToken.length > 2 && !stopWords.has(cleanToken)) {
+      const standardSkill = SKILL_SYNONYMS[cleanToken] || cleanToken;
+      freq[standardSkill] = (freq[standardSkill] || 0) + 1;
     }
   });
 
-  const sortedSkills = Object.entries(freq)
+  return Object.entries(freq)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 15)
     .map(entry => entry[0]);
-
-  return sortedSkills;
 }
 
 function detectDynamicIndustry(skills: string[]): string[] {
@@ -255,39 +265,41 @@ function estimateAdvancedSalary(role: string, experienceData: any, seniority: st
   };
 }
 
-// ==================== HELPER: SMART WEIGHTED JOB MATCHING ====================
+// ==================== HELPER: GOD-LEVEL WEIGHTED MATCHING ====================
 function calculateWeightedJobMatch(
   cvText: string, 
   jobTitle: string, 
   jobDescription: string, 
   candidateData: any
-): number {
-  const cleanJob = `${jobTitle} ${jobDescription}`.toLowerCase().replace(/[^\w\s]/g, ' ');
+): { score: number; reason: string; matchedSkills: string[] } {
+  const cleanJob = `${jobTitle} ${jobDescription}`.toLowerCase().replace(/[^\w\s.+#]/g, ' ');
   let totalScore = 0;
+  const matchedSkillsList: string[] = [];
 
-  // 1. Role Match (40%) - Smarter matching for messy roles
+  // 1. Role Match (30%)
   let roleScore = 0;
-    const jobTitleLower = jobTitle.toLowerCase();
+  const jobTitleLower = jobTitle.toLowerCase();
   const roleWords = candidateData.primaryRole.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3 && !['professional', 'experience', 'summary', 'objective'].includes(w));
   
   if (roleWords.length > 0) {
     const matchedRoleWords = roleWords.filter((w: string) => jobTitleLower.includes(w));
-    if (matchedRoleWords.length >= 2) roleScore = 40;
-    else if (matchedRoleWords.length === 1) roleScore = 20;
+    if (matchedRoleWords.length >= 2) roleScore = 30;
+    else if (matchedRoleWords.length === 1) roleScore = 15;
   }
   totalScore += roleScore;
 
-  // 2. Skill Match (40%) - MOST IMPORTANT (Ignore generic words)
+  // 2. Weighted Skill Match (50%) - Core skills get more weight
   let skillScore = 0;
-  const matchedSkills = candidateData.skills.filter((skill: string) => {
-    if (['professional', 'experience', 'summary', 'objective', 'team', 'work'].includes(skill.toLowerCase())) return false;
-    const escapedSkill = skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return new RegExp(`\\b${escapedSkill}\\b`, 'i').test(cleanJob);
-  });
+  const coreSkills = ['python', 'java', 'javascript', 'react', 'nodejs', 'sql', 'aws', 'excel', 'powerbi', 'machine learning'];
   
-  // 3 real skills matched = 40% score
-  skillScore = Math.min((matchedSkills.length / 3) * 40, 40);
-  totalScore += skillScore;
+  candidateData.skills.forEach((skill: string) => {
+    const escapedSkill = skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (new RegExp(`\\b${escapedSkill}\\b`, 'i').test(cleanJob)) {
+      matchedSkillsList.push(skill);
+      skillScore += coreSkills.includes(skill) ? 4 : 2; // Core skills = 4 pts, others = 2 pts
+    }
+  });
+  totalScore += Math.min(skillScore, 50);
 
   // 3. Experience Match (20%)
   let expScore = 0;
@@ -297,11 +309,23 @@ function calculateWeightedJobMatch(
     if (candidateData.totalExperienceYears >= requiredYears) expScore = 20;
     else if (candidateData.totalExperienceYears >= requiredYears - 1) expScore = 10;
   } else {
-    expScore = 15; // No experience specified, give benefit of doubt
+    expScore = 15;
   }
   totalScore += expScore;
 
-  return Math.min(Math.round(totalScore), 100);
+  // ✅ Generate 1-Line "Why this matched" Reason
+  let reason = "General profile match.";
+  if (matchedSkillsList.length >= 2) {
+    reason = `Strong match: Requires ${matchedSkillsList.slice(0, 2).join(' & ')}, which you have.`;
+  } else if (roleScore >= 15) {
+    reason = `Title aligns well with your ${candidateData.primaryRole} background.`;
+  }
+
+  return { 
+    score: Math.min(Math.round(totalScore), 100), 
+    reason, 
+    matchedSkills: matchedSkillsList.slice(0, 5) 
+  };
 }
 
 // ==================== HELPER: DISTANCE CALCULATION ====================
@@ -343,7 +367,9 @@ async function fetchFromGreenhouse(searchTerms: string[]): Promise<any[]> {
           .slice(0, 5) // ✅ Increased to 5 kyunki ab purani jobs filter ho jayengi
           .map((job: any) => ({
             id: `gh-${company}-${job.id}`, title: job.title, company: company.charAt(0).toUpperCase() + company.slice(1),
-            location: job.location?.name || 'Remote', url: job.absolute_url, description: (job.content || '').replace(/<[^>]*>/g, '').substring(0, 500),
+            location: job.location?.name || 'Remote', url: job.absolute_url, 
+            fullDescription: (job.content || '').replace(/<[^>]*>/g, ''), // ✅ Full text for matching
+            description: (job.content || '').replace(/<[^>]*>/g, '').substring(0, 500), // ✅ Short text for frontend
             postedDate: job.updated_at || new Date().toISOString(), source: 'Greenhouse'
           }));
       }
@@ -373,8 +399,10 @@ async function fetchFromLever(searchTerms: string[]): Promise<any[]> {
           .slice(0, 5)
           .map((job: any) => ({
             id: `lever-${company}-${job.id}`, title: job.text, company: company.charAt(0).toUpperCase() + company.slice(1),
-            location: job.categories?.location || 'Remote', url: job.hostedUrl, description: (job.description || '').replace(/<[^>]*>/g, '').substring(0, 500),
-            postedDate: job.created_at || job.updated_at || new Date().toISOString(), // ✅ FIXED: Ab actual date use hogi
+            location: job.categories?.location || 'Remote', url: job.hostedUrl, 
+            fullDescription: (job.description || '').replace(/<[^>]*>/g, ''), // ✅ Full text for matching
+            description: (job.description || '').replace(/<[^>]*>/g, '').substring(0, 500), // ✅ Short text for frontend
+            postedDate: job.created_at || job.updated_at || new Date().toISOString(), 
             source: 'Lever'
           }));
       }
@@ -404,7 +432,9 @@ async function fetchFromAshby(searchTerms: string[]): Promise<any[]> {
           .slice(0, 5)
           .map((job: any) => ({
             id: `ashby-${company}-${job.id}`, title: job.title, company: company.charAt(0).toUpperCase() + company.slice(1),
-            location: job.locationName || 'Remote', url: job.applicationUrl || job.url || '#', description: (job.description || '').replace(/<[^>]*>/g, '').substring(0, 500),
+            location: job.locationName || 'Remote', url: job.applicationUrl || job.url || '#', 
+            fullDescription: (job.description || '').replace(/<[^>]*>/g, ''), // ✅ Full text for matching
+            description: (job.description || '').replace(/<[^>]*>/g, '').substring(0, 500), // ✅ Short text for frontend
             postedDate: job.publishedDate || new Date().toISOString(), source: 'Ashby'
           }));
       }
@@ -454,7 +484,8 @@ async function fetchFromRSS(searchTerms: string[], location: string): Promise<an
               title: parts[0] || item.title,
               company: parts.length > 1 ? parts[1] : 'Unknown',
               location: parts.length > 2 ? parts[2] : location,
-              description: (item.contentSnippet || item.content || '').replace(/<[^>]*>/g, '').substring(0, 500),
+              fullDescription: (item.contentSnippet || item.content || '').replace(/<[^>]*>/g, ''), // ✅ Full text for matching
+              description: (item.contentSnippet || item.content || '').replace(/<[^>]*>/g, '').substring(0, 500), // ✅ Short text for frontend
               url: item.link || '#',
               postedDate: item.pubDate || new Date().toISOString(),
               source: 'RSS'
@@ -634,74 +665,86 @@ export async function POST(req: NextRequest) {
     const API_KEY = process.env.ADZUNA_API_KEY;
     
     if (APP_ID && API_KEY) {
-      const limitedLocations = searchLocations.slice(0, 4);
+      // ✅ FIX: Sirf top 2 locations use karo taaki API response 30s ke andar aaye (Mobile friendly)
+      const limitedLocations = searchLocations.slice(0, 2); 
       const fetchPromises: Promise<any[]>[] = [];
       
-      for (const loc of limitedLocations) {
-        for (const term of searchTerms) {
-        const url = `https://api.adzuna.com/v1/api/jobs/in/search/1?app_id=${APP_ID}&app_key=${API_KEY}&results_per_page=25&what=${encodeURIComponent(term)}&where=${encodeURIComponent(loc)}&max_days_old=7&content-type=application/json`;          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 8000); // ✅ FIX: Lowered to 8s
-          
-          fetchPromises.push(
-            fetch(url, { signal: controller.signal })
-              .then(async (response) => {
-                clearTimeout(timeoutId);
-                if (response.ok) {
-                  const data = await response.json();
-                  return (data.results || []).map((job: any) => {
-                    let jobCity = "";
-                    let distance: number | null = null;
-                    let isWithinRadius = true;
+        for (const loc of limitedLocations) {
+          for (const term of searchTerms) {
+            const url = `https://api.adzuna.com/v1/api/jobs/in/search/1?app_id=${APP_ID}&app_key=${API_KEY}&results_per_page=25&what=${encodeURIComponent(term)}&where=${encodeURIComponent(loc)}&max_days_old=7&content-type=application/json`;
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 15000); // ✅ INCREASED TO 15s: Prevents silent network drops
+            
+            fetchPromises.push(
+              fetch(url, { signal: controller.signal })
+                .then(async (response) => {
+                  clearTimeout(timeoutId);
+                  if (response.ok) {
+                    const data = await response.json();
+                    const results = data.results || [];
+                    console.log(`✅ Adzuna Success for "${term}" in ${loc}: ${results.length} jobs`);
+                    
+                    return results.map((job: any) => {
+                      let jobCity = "";
+                      let distance: number | null = null;
+                      let isWithinRadius = true;
 
-                    if (job.location?.display_name) {
-                      const parts = job.location.display_name.split(',');
-                      jobCity = parts[0]?.trim() || "";
-                    }
-
-                    if (userCoords && jobCity) {
-                      const cityLower = jobCity.toLowerCase();
-                      const matchedMajorCity = MAJOR_CITIES.find(c => cityLower.includes(c.name.toLowerCase()));
-                      if (matchedMajorCity) {
-                        distance = calculateDistance(userCoords.lat, userCoords.lon, matchedMajorCity.lat, matchedMajorCity.lon);
-                        isWithinRadius = distance <= 70;
+                      if (job.location?.display_name) {
+                        const parts = job.location.display_name.split(',');
+                        jobCity = parts[0]?.trim() || "";
                       }
-                    }
 
-                    const candidateDataForMatch = {
-                      primaryRole: roleData.primaryRole,
-                      secondaryRoles: roleData.secondaryRoles,
-                      totalExperienceYears: experienceData.totalExperienceYears,
-                      skills: dynamicSkills,
-                      industries: dynamicIndustries
-                    };
+                      if (userCoords && jobCity) {
+                        const cityLower = jobCity.toLowerCase();
+                        const matchedMajorCity = MAJOR_CITIES.find(c => cityLower.includes(c.name.toLowerCase()));
+                        if (matchedMajorCity) {
+                          distance = calculateDistance(userCoords.lat, userCoords.lon, matchedMajorCity.lat, matchedMajorCity.lon);
+                          isWithinRadius = distance <= 70;
+                        }
+                      }
 
-                    const matchPercentage = calculateWeightedJobMatch(
-                      text, 
-                      job.title || '', 
-                      job.description || '', 
-                      candidateDataForMatch
-                    );
+                      const candidateDataForMatch = {
+                        primaryRole: roleData.primaryRole,
+                        secondaryRoles: roleData.secondaryRoles,
+                        totalExperienceYears: experienceData.totalExperienceYears,
+                        skills: dynamicSkills,
+                        industries: dynamicIndustries
+                      };
 
-                    return {
-                      id: job.id, title: job.title, company: job.company?.display_name || 'Unknown',
-                      location: job.location?.display_name || 'Unknown', city: jobCity,
-                      description: (job.description || '').substring(0, 500), url: job.redirect_url || '#',
-                      postedDate: job.created,
-                      matchPercentage,
-                      matchingSkills: dynamicSkills.slice(0, 3), 
-                      primaryRole: roleData.primaryRole, 
-                      distance, 
-                      withinRadius: isWithinRadius, 
-                      source: 'Adzuna'
-                    };
-                  });
-                }
-                return [];
-              })
-              .catch(() => { clearTimeout(timeoutId); return []; })
-          );
+                      const matchResult = calculateWeightedJobMatch(
+                        text, 
+                        job.title || '', 
+                        job.description || '', 
+                        candidateDataForMatch
+                      );
+
+                      return {
+                        id: job.id, title: job.title, company: job.company?.display_name || 'Unknown',
+                        location: job.location?.display_name || 'Unknown', city: jobCity,
+                        fullDescription: job.description || '', description: (job.description || '').substring(0, 500), url: job.redirect_url || '#',
+                        postedDate: job.created,
+                        matchPercentage: matchResult.score,        // ✅ CRITICAL: Sirf NUMBER
+                        matchReason: matchResult.reason,           // ✅ CRITICAL: Sirf STRING
+                        matchingSkills: matchResult.matchedSkills, // ✅ CRITICAL: Sirf ARRAY
+                        primaryRole: roleData.primaryRole, 
+                        distance, 
+                        withinRadius: isWithinRadius, 
+                        source: 'Adzuna'
+                      };
+                    });
+                  } else {
+                    console.warn(`⚠️ Adzuna API returned ${response.status} for "${term}" in ${loc}`);
+                    return [];
+                  }
+                })
+                .catch((err) => { 
+                  clearTimeout(timeoutId); 
+                  console.error(`❌ Adzuna Fetch Failed for "${term}" in ${loc}:`, err.message);
+                  return []; 
+                })
+            );
+          }
         }
-      }
       
       fetchPromises.push(fetchFromGreenhouse(searchTerms));
       fetchPromises.push(fetchFromLever(searchTerms));
@@ -723,24 +766,22 @@ export async function POST(req: NextRequest) {
     const seenUrls = new Set<string>();
     const now = new Date();
     
-        // Ensure ALL jobs (including RSS/Greenhouse/etc) have a matchPercentage calculated
+    // Ensure ALL jobs have a matchPercentage, reason, and matchedSkills calculated
     const scoredJobs = matchedJobs.map(job => {
       if (job.matchPercentage === undefined) {
         const candidateDataForMatch = {
-          primaryRole: cleanRole, // ✅ CHANGE: roleData.primaryRole ki jagah cleanRole use karo
+          primaryRole: cleanRole,
           secondaryRoles: roleData.secondaryRoles,
           totalExperienceYears: experienceData.totalExperienceYears,
           skills: dynamicSkills,
           industries: dynamicIndustries
         };
-        job.matchPercentage = calculateWeightedJobMatch(text, job.title || '', job.description || '', candidateDataForMatch);
         
-        const cleanJob = `${job.title} ${job.description}`.toLowerCase().replace(/[^\w\s]/g, ' ');
-        job.matchingSkills = dynamicSkills.filter((skill: string) => {
-          if (['professional', 'experience', 'summary', 'objective', 'team', 'work'].includes(skill.toLowerCase())) return false;
-          const escapedSkill = skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          return new RegExp(`\\b${escapedSkill}\\b`, 'i').test(cleanJob);
-        }).slice(0, 5);
+        // ✅ Use new object return type & fullDescription for accurate matching
+        const matchResult = calculateWeightedJobMatch(text, job.title || '', job.fullDescription || job.description || '', candidateDataForMatch);
+        job.matchPercentage = matchResult.score;
+        job.matchReason = matchResult.reason; // ✅ NEW: AI Match Reason
+        job.matchingSkills = matchResult.matchedSkills; // ✅ NEW: Accurate matched skills
       }
       return job;
     });
@@ -861,6 +902,7 @@ export async function POST(req: NextRequest) {
       withinRadiusCount,
       searchTermsUsed: searchTerms,
       weightedJobMatching: true,
+      includeMatchReasons: true, // ✅ NEW: Frontend ko reason dikhane ke liye flag
       
       source: 'Advanced Dynamic NLP Engine',
       location: searchLocations.join(', '),
